@@ -60,7 +60,7 @@ def main():
 
                 # 检查余额是否低于阈值
                 if balance < alert_balance:
-                    logger.warning(f"房间 {room_name} 余额低于阈值 ({balance:.2f} < {alert_balance})")
+                    logger.info(f"房间 {room_name} 余额低于阈值 ({balance:.2f} < {alert_balance})")
 
                     # 查找该房间的配置
                     room_config = next((q for q in queries if q["room_name"] == room_name), None)
@@ -71,6 +71,21 @@ def main():
                     text_content = Defaults.generate_text_email(room_name, balance, alert_balance)
                     html_content = Defaults.generate_html_email(room_name, balance, alert_balance)
                     markdown_content = Defaults.generate_markdown_notification(room_name, balance, alert_balance)
+
+                    # 发送Server酱通知
+                    if room_config["server_chan"]["enabled"]:
+                        for recipient in room_config["server_chan"]["recipients"]:
+                            try:
+                                notification.send_server_chan(
+                                    uid=recipient["uid"],
+                                    sendkey=recipient["sendkey"],
+                                    title="电费余额告警",
+                                    desp=markdown_content,
+                                    short="快去交电费!!!"
+                                )
+                                logger.info(f"已向Server酱用户 {recipient['uid']} 发送通知")
+                            except Exception as e:
+                                logger.error(f"发送Server酱通知失败: {str(e)}")
 
                     # 发送邮件通知
                     try:
@@ -83,20 +98,6 @@ def main():
                         logger.info(f"已向房间 {room_name} 发送邮件通知")
                     except Exception as e:
                         logger.error(f"发送邮件失败: {str(e)}")
-
-                    # 发送Server酱通知
-                    if room_config["server_chan"]["enabled"]:
-                        for recipient in room_config["server_chan"]["recipients"]:
-                            try:
-                                notification.send_server_chan(
-                                    uid=recipient["uid"],
-                                    sendkey=recipient["sendkey"],
-                                    title="电费余额告警",
-                                    desp=markdown_content
-                                )
-                                logger.info(f"已向Server酱用户 {recipient['uid']} 发送通知")
-                            except Exception as e:
-                                logger.error(f"发送Server酱通知失败: {str(e)}")
 
             # 处理检查间隔
             if check_interval <= 0:
