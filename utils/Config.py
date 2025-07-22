@@ -6,130 +6,10 @@ import sys
 from pathlib import Path
 import jsonschema
 from jsonschema import validate, Draft7Validator
+from Defaults import _DEFAULT_SCHEMA
 
 
 class ConfigReader:
-    # 内嵌的默认 Schema
-    _DEFAULT_SCHEMA = {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "Energyfy Config Schema",
-        "type": "object",
-        "properties": {
-            "username": {
-                "type": "string",
-                "description": "你的学号，会用这个学号的统一认证平台账号发送请求"
-            },
-            "password": {
-                "type": "string",
-                "description": "统一认证平台密码"
-            },
-            "check_interval": {
-                "type": "integer",
-                "minimum": 0,
-                "description": "余额检查间隔时间（秒），0表示单次检查后退出"
-            },
-            "alert_balance": {
-                "type": "number",
-                "minimum": 0,
-                "description": "余额告警阈值（单位：元），可以填小数，低于此值触发通知"
-            },
-            "smtp": {
-                "type": "object",
-                "description": "SMTP邮件服务器配置，用于发送余额告警邮件",
-                "properties": {
-                    "server": {
-                        "type": "string",
-                        "format": "hostname",
-                        "description": "SMTP服务器主机名或IP地址"
-                    },
-                    "port": {
-                        "type": "integer",
-                        "minimum": 1,
-                        "maximum": 65535,
-                        "description": "SMTP服务器端口号"
-                    },
-                    "username": {
-                        "type": "string",
-                        "description": "SMTP认证用户名"
-                    },
-                    "password": {
-                        "type": "string",
-                        "description": "SMTP认证密码"
-                    },
-                    "security": {
-                        "type": "string",
-                        "enum": ["ssl", "tls", "none"],
-                        "description": "连接安全协议：ssl(强制SSL)、tls(STARTTLS)、none(无加密)"
-                    }
-                },
-                "required": ["server", "port", "username", "password", "security"],
-                "additionalProperties": False
-            },
-            "queries": {
-                "type": "array",
-                "minItems": 1,
-                "description": "监控配置列表，每个元素对应一个宿舍的监控设置",
-                "items": {
-                    "type": "object",
-                    "description": "具体的监控设置，请在下方编辑",
-                    "properties": {
-                        "room_name": {
-                            "type": "string",
-                            "description": "房间编号,研究生0开头，本科生1开头，剩下是楼栋+宿舍号。"
-                        },
-                        "recipients": {
-                            "type": "array",
-                            "minItems": 1,
-                            "description": "邮件通知收件人列表",
-                            "items": {
-                                "type": "string",
-                                "format": "email",
-                                "description": "有效的电子邮件地址"
-                            }
-                        },
-                        "server_chan": {
-                            "type": "object",
-                            "description": "Server酱配置，详情请访问https://sc3.ft07.com/",
-                            "properties": {
-                                "enabled": {
-                                    "type": "boolean",
-                                    "description": "是否启用Server酱推送"
-                                },
-                                "recipients": {
-                                    "type": "array",
-                                    "minItems": 1,
-                                    "description": "Server酱推送收件人列表，如未启用可留空",
-                                    "items": {
-                                        "type": "object",
-                                        "description": "两项都必须填",
-                                        "properties": {
-                                            "uid": {
-                                                "type": "string",
-                                                "description": "Server酱用户UID"
-                                            },
-                                            "sendkey": {
-                                                "type": "string",
-                                                "description": "Server酱发送密钥"
-                                            }
-                                        },
-                                        "required": ["uid", "sendkey"],
-                                        "additionalProperties": False
-                                    }
-                                }
-                            },
-                            "required": ["enabled", "recipients"],
-                            "additionalProperties": False
-                        }
-                    },
-                    "required": ["room_name", "recipients", "server_chan"],
-                    "additionalProperties": False
-                }
-            }
-        },
-        "required": ["username", "password", "check_interval", "alert_balance", "smtp", "queries"],
-        "additionalProperties": False
-    }
-
     def __init__(self, config_path=None):
         """
         初始化配置读取器
@@ -207,7 +87,7 @@ class ConfigReader:
         """加载JSON Schema进行验证"""
         # 对于自定义配置路径，使用内嵌Schema
         if self.is_custom_config:
-            self.schema = self._DEFAULT_SCHEMA
+            self.schema = _DEFAULT_SCHEMA
             return
 
         # 对于默认配置路径，从文件加载Schema
@@ -220,7 +100,7 @@ class ConfigReader:
                 "将使用内嵌Schema进行验证",
                 file=sys.stderr
             )
-            self.schema = self._DEFAULT_SCHEMA
+            self.schema = _DEFAULT_SCHEMA
             return
 
         try:
@@ -234,7 +114,7 @@ class ConfigReader:
                 "将使用内嵌Schema进行验证",
                 file=sys.stderr
             )
-            self.schema = self._DEFAULT_SCHEMA
+            self.schema = _DEFAULT_SCHEMA
         except Exception as e:
             print(
                 f"警告: 读取Schema文件失败: {schema_path}\n"
@@ -242,7 +122,7 @@ class ConfigReader:
                 "将使用内嵌Schema进行验证",
                 file=sys.stderr
             )
-            self.schema = self._DEFAULT_SCHEMA
+            self.schema = _DEFAULT_SCHEMA
 
     def get(self, key_path, default=None):
         """
@@ -403,39 +283,3 @@ class ConfigReader:
                 summary += f"  {i + 1}. {room} (收件人: {recipients})\n"
 
         return summary
-
-
-# 使用示例
-if __name__ == "__main__":
-    try:
-        # 使用默认配置
-        print("正在加载默认配置文件...")
-        default_config = ConfigReader()
-        print(f"✅ 默认配置文件加载成功: {default_config.config_path}")
-        print(default_config)
-
-        # 使用自定义配置
-        custom_path = input("\n输入自定义配置文件路径(留空跳过): ").strip()
-        if custom_path:
-            print(f"正在加载自定义配置文件: {custom_path}")
-            custom_config = ConfigReader(config_path=custom_path)
-            print(f"✅ 自定义配置文件加载成功")
-            print(custom_config)
-
-        print("\n✅ 所有配置验证通过")
-
-    except FileNotFoundError as e:
-        print(f"❌ 文件未找到: {str(e)}", file=sys.stderr)
-        sys.exit(1)
-    except json.JSONDecodeError as e:
-        print(f"❌ JSON解析错误: {str(e)}", file=sys.stderr)
-        sys.exit(1)
-    except ValueError as e:
-        print(f"❌ 配置验证失败: {str(e)}", file=sys.stderr)
-        sys.exit(1)
-    except RuntimeError as e:
-        print(f"❌ 运行时错误: {str(e)}", file=sys.stderr)
-        sys.exit(1)
-    except Exception as e:
-        print(f"❌ 未知错误: {str(e)}", file=sys.stderr)
-        sys.exit(1)
