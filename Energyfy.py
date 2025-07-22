@@ -1,18 +1,6 @@
 from utils.RoomInfo import RoomInfo
+from utils.Defaults import generate_html_email
+from utils.NotificationManager import NotificationManager
+from utils.Config import ConfigReader
 
-queries = [
-    "XXXXXX",
-    "XXXXXX",
-    "XXXXXX",
-    "XXXXXX",
-    "XXXXXX",
-    "XXXXXX",
-    "XXXXXX",
-]
-
-room_info = RoomInfo("YOUR_STUDENT_ID", "YOUR_PASSWORD", queries)
-results = room_info.get()
-
-for result in results:
-    result = result[1]
-    print(f"房间 {result['roomName']} 余额为 {result['syje']}")
+config = ConfigReader()

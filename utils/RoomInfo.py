@@ -5,7 +5,7 @@ import re
 
 class RoomInfo:
 
-    def __init__(self, username, password, query_list):
+    def __init__(self, username, password):
         self.USERNAME = username
         self.PASSWORD = password
         self.BASE_URL = "https://idas.uestc.edu.cn"
@@ -13,7 +13,6 @@ class RoomInfo:
         self.LOGIN_URL = f"{self.BASE_URL}/authserver/login"
         self.TARGET_URL = f"{self.EPORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/index.do#/record"
         self.INFO_API = f"{self.EPORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/dormElecPrepaidMan/queryRoomInfo.do"
-        self.QUERIES = query_list
 
 
     def get_dynamic_js(self, session):
@@ -179,7 +178,7 @@ class RoomInfo:
         except requests.exceptions.RequestException as e:
             raise RuntimeError(f"登录请求失败: {str(e)}")
 
-    def get(self):
+    def get(self, queries):
         try:
             final_response, cookies, redirect_history = self.login()
 
@@ -188,7 +187,7 @@ class RoomInfo:
 
             result = []
 
-            for query in self.QUERIES:
+            for query in queries:
                 payload = {
                     "roomIds": f'[{{"DORM_ID":"{str(query)}"}}]'
                 }
