@@ -7,19 +7,17 @@
 <img src="https://cloud.athbe.cn/f/Bef9/9USEFCXMK2QMH%602KP%28GX%7DTP.png" width="300" />
 <img src="https://cloud.athbe.cn/f/RNtB/578d16a600844487c70255a8e49b6911.jpg" width="300" />
 
-## Server酱
+## Server酱是什么？
 
 *Server酱³专注于APP推送，大部分手机无需驻留后台亦可收信。*
 
 前往[Server酱³ · 极简推送服务](https://sc3.ft07.com/)注册用户以获取`UUID`和`Sendkey`，在配置文件中启用Server酱并填写，并在手机上安装应用即可接收推送。
 
-
-
 ## 快速开始
 
-脚本运行需要一个json配置文件，有两种方式。
+脚本运行需要一个json配置文件，有两种方式获取。
 
-### ConfigManager
+### 1. ConfigManager
 
 使用[AthBe1337/ConfigManager](https://github.com/AthBe1337/ConfigManager)对配置进行管理，支持多配置文件随时切换以及可视化的编辑。
 
@@ -30,10 +28,15 @@
 ```bash
 #编译ConfigManager
 git clone https://github.com/AthBe1337/UESTC-Energyfy.git
-cd external/ConfigManager
+cd UESTC-Energyfy/external/ConfigManager
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j$(nproc)
+
+#Windows下可以使用Ninja
+#cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+#ninja -j18
+
 #运行ConfigManager
 ./ConfigManager Energyfy
 ```
@@ -47,7 +50,7 @@ make -j$(nproc)
 
 ![](https://cloud.athbe.cn/f/w3u6/_JIP5@6UUQ9LW%28T%2958H75MJ.png)
 
-### 手动编辑
+### 2. 手动编辑
 
 如果你更习惯手动编辑，可以按照下面的模板手动编辑配置文件。
 
@@ -95,3 +98,5 @@ python3 Energyfy.py
 ```bash
 python3 Energyfy.py ./config.json
 ```
+
+日志将被保存于`log/Energyfy.log`。
