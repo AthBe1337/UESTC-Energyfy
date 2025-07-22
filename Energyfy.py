@@ -1,11 +1,49 @@
 import sys
 import time
 import traceback
+import concurrent.futures
 from utils import Defaults
 from utils.Config import ConfigReader
 from utils.RoomInfo import RoomInfo
 from utils.NotificationManager import NotificationManager
 from utils.Logger import get_logger
+
+
+def send_notifications(room_name, balance, alert_balance, room_config, notification):
+    """并行发送通知的辅助函数"""
+    logger = get_logger()
+
+    # 准备通知内容
+    text_content = Defaults.generate_text_email(room_name, balance, alert_balance)
+    html_content = Defaults.generate_html_email(room_name, balance, alert_balance)
+    markdown_content = Defaults.generate_markdown_notification(room_name, balance, alert_balance)
+
+    # 发送Server酱通知
+    if room_config["server_chan"]["enabled"]:
+        for recipient in room_config["server_chan"]["recipients"]:
+            try:
+                notification.send_server_chan(
+                    uid=recipient["uid"],
+                    sendkey=recipient["sendkey"],
+                    title="电费余额告警",
+                    desp=markdown_content,
+                    short="快去交电费!!!",
+                )
+                logger.info(f"已向Server酱用户 {recipient['uid']} 发送通知")
+            except Exception as e:
+                logger.error(f"发送Server酱通知失败: {str(e)}")
+
+    # 发送邮件通知
+    try:
+        notification.send_email(
+            recipients=room_config["recipients"],
+            subject=f"电费余额告警 - {room_name}",
+            text_content=text_content,
+            html_content=html_content
+        )
+        logger.info(f"已向房间 {room_name} 发送邮件通知")
+    except Exception as e:
+        logger.error(f"发送邮件失败: {str(e)}")
 
 
 def main(path=None):
@@ -60,9 +98,11 @@ def main(path=None):
             logger.info(f"开始查询{len(room_names)}个房间的余额信息")
             results = room_info.get(room_names)
 
-            # 处理查询结果
+            # 处理需要通知的房间
+            alert_rooms = []
             for room_name, result in results:
                 if result is None:
+                    logger.warning(f"房间 {room_name} 查询失败")
                     continue
 
                 balance = float(result.get("syje", '0.0'))
@@ -70,44 +110,35 @@ def main(path=None):
 
                 # 检查余额是否低于阈值
                 if balance < alert_balance:
-                    logger.info(f"房间 {room_name} 余额低于阈值 ({balance:.2f} < {alert_balance})")
+                    logger.warning(f"房间 {room_name} 余额低于阈值 ({balance:.2f} < {alert_balance})")
+                    alert_rooms.append((room_name, balance))
 
-                    # 查找该房间的配置
-                    room_config = next((q for q in queries if q["room_name"] == room_name), None)
-                    if not room_config:
-                        continue
+            # 并行发送通知
+            if alert_rooms:
+                logger.info(f"{len(alert_rooms)}个房间需要通知")
 
-                    # 准备通知内容
-                    text_content = Defaults.generate_text_email(room_name, balance, alert_balance)
-                    html_content = Defaults.generate_html_email(room_name, balance, alert_balance)
-                    markdown_content = Defaults.generate_markdown_notification(room_name, balance, alert_balance)
+                # 使用线程池并行发送
+                with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+                    futures = []
+                    for room_name, balance in alert_rooms:
+                        # 查找该房间的配置
+                        room_config = next((q for q in queries if q["room_name"] == room_name), None)
+                        if not room_config:
+                            continue
 
-                    # 发送Server酱通知
-                    if room_config["server_chan"]["enabled"]:
-                        for recipient in room_config["server_chan"]["recipients"]:
-                            try:
-                                notification.send_server_chan(
-                                    uid=recipient["uid"],
-                                    sendkey=recipient["sendkey"],
-                                    title="电费余额告警",
-                                    desp=markdown_content,
-                                    short="快去交电费!!!"
-                                )
-                                logger.info(f"已向Server酱用户 {recipient['uid']} 发送通知")
-                            except Exception as e:
-                                logger.error(f"发送Server酱通知失败: {str(e)}")
-
-                    # 发送邮件通知
-                    try:
-                        notification.send_email(
-                            recipients=room_config["recipients"],
-                            subject=f"电费余额告警 - {room_name}",
-                            text_content=text_content,
-                            html_content=html_content
+                        # 提交发送任务
+                        future = executor.submit(
+                            send_notifications,
+                            room_name, balance, alert_balance, room_config, notification
                         )
-                        logger.info(f"已向房间 {room_name} 发送邮件通知")
-                    except Exception as e:
-                        logger.error(f"发送邮件失败: {str(e)}")
+                        futures.append(future)
+
+                    # 等待所有任务完成
+                    for future in concurrent.futures.as_completed(futures):
+                        try:
+                            future.result()
+                        except Exception as e:
+                            logger.error(f"通知任务异常: {str(e)}")
 
             # 处理检查间隔
             if check_interval <= 0:
