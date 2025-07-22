@@ -11,7 +11,7 @@
 
 *Server酱³专注于APP推送，大部分手机无需驻留后台亦可收信。*
 
-前往[Server酱³ · 极简推送服务](https://sc3.ft07.com/)注册用户以获取`UUID`和`Sendkey`，在配置文件中启用Server酱并填写，并在手机上安装应用即可接收推送。
+前往[Server酱³ · 极简推送服务](https://sc3.ft07.com/)注册用户以获取`UUID`和`Sendkey`，在配置文件中启用Server酱并填写，在手机上安装应用即可接收推送。
 
 ## 快速开始
 
