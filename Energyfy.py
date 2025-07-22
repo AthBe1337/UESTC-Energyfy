@@ -1,6 +1,5 @@
 import sys
 import time
-import traceback
 import concurrent.futures
 from utils import Defaults
 from utils.Config import ConfigReader
@@ -161,7 +160,6 @@ def main(path=None):
                 time.sleep(10)
             else:
                 logger.error(f"主程序发生未处理异常: {str(e)}")
-                logger.debug(traceback.format_exc())
                 logger.info("30秒后重新启动...")
                 time.sleep(30)
 
