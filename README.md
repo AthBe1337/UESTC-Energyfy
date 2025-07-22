@@ -27,7 +27,7 @@
 
 ```bash
 #编译ConfigManager
-git clone https://github.com/AthBe1337/UESTC-Energyfy.git
+git clone --recurse-submodules https://github.com/AthBe1337/UESTC-Energyfy.git
 cd UESTC-Energyfy/external/ConfigManager
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
