@@ -1,3 +1,4 @@
+import sys
 import time
 import traceback
 from utils import Defaults
@@ -7,13 +8,16 @@ from utils.NotificationManager import NotificationManager
 from utils.Logger import get_logger
 
 
-def main():
+def main(path=None):
     # 初始化日志
     logger = get_logger()
     logger.info("UESTC-Energyfy 已启动...")
 
     # 初始化配置读取器
-    config_reader = ConfigReader()
+    if path:
+        config_reader = ConfigReader(path)
+    else:
+        config_reader = ConfigReader()
 
     # 主循环
     while True:
@@ -121,4 +125,8 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # 存在参数时，使用第一个参数作为配置文件路径
+    if len(sys.argv) > 1:
+        main(sys.argv[1])
+    else:
+        main()
