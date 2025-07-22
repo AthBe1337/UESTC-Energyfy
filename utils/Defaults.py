@@ -168,7 +168,7 @@ def generate_html_email(roomname, balance, min_balance):
 
             <!-- 操作按钮 -->
             <div style="text-align: center; margin: 30px 0 20px;">
-                <a href="https://eportal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do" 
+                <a href="https://eportal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do"  rel="noreferrer"
                    style="background-color: {theme_color}; 
                           color: #fff; 
                           text-decoration: none; 
@@ -198,3 +198,63 @@ def generate_html_email(roomname, balance, min_balance):
 </html>
     """
     return html_content
+
+def generate_text_email(roomname, balance, min_balance):
+    text_content = f"""
+UESTC-Energyfy 余额告警通知
+========================================
+
+尊敬的 {roomname} 宿舍用户：
+
+系统检测到您的宿舍电费余额已低于预设阈值 {min_balance} 元。
+
+当前电费余额：{balance} 元
+
+----------------------------------------
+[重要提示]
+为避免影响正常用电，请及时充值。
+----------------------------------------
+
+立即充值：
+请访问：https://eportal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do
+
+如有疑问，别有疑问。。
+
+========================================
+本邮件为系统自动发送，请勿直接回复
+UESTC-Energyfy © {datetime.datetime.now().year}
+========================================
+"""
+    return text_content.strip()
+
+def generate_markdown_notification(roomname, balance, min_balance):
+    markdown_content = f"""
+# ⚡ UESTC-Energyfy 余额告警通知
+
+---
+
+## 尊敬的 {roomname} 宿舍用户
+
+系统检测到您的宿舍电费余额 **已低于预设阈值 {min_balance} 元**。
+
+### 🔋 当前电费余额
+```diff
+- {balance} 元
+```
+
+---
+
+## ⚠️ 重要提示
+> 为避免影响正常用电，请及时充值。  
+
+---
+
+## 🚀 立即充值
+[点击进入充值页面](https://eportal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do)
+
+
+---
+
+UESTC-Energyfy © {datetime.datetime.now().year}
+"""
+    return markdown_content.strip()
