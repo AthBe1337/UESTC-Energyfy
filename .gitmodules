@@ -1,0 +1,3 @@
+[submodule "external/ConfigManager"]
+	path = external/ConfigManager
+	url = https://github.com/AthBe1337/ConfigManager.git

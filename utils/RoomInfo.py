@@ -208,7 +208,7 @@ class RoomInfo:
                 response_json = response.json()[0]['roomInfo']
 
                 if response_json['retcode'] == 0:
-                    result.append(response_json)
+                    result.append((str(query), response_json))
 
             return result
         except requests.exceptions.RequestException as e:

@@ -14,4 +14,5 @@ room_info = RoomInfo("YOUR_STUDENT_ID", "YOUR_PASSWORD", queries)
 results = room_info.get()
 
 for result in results:
+    result = result[1]
     print(f"房间 {result['roomName']} 余额为 {result['syje']}")
