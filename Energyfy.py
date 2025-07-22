@@ -52,10 +52,14 @@ def main(path=None):
     logger.info("UESTC-Energyfy 已启动...")
 
     # 初始化配置读取器
-    if path:
-        config_reader = ConfigReader(path)
-    else:
-        config_reader = ConfigReader()
+    while True:
+        try:
+            config_reader = ConfigReader(path)
+            break
+        except Exception as e:
+            logger.error(f"配置文件验证失败")
+            logger.info("30秒后重试配置文件验证...")
+            time.sleep(30)
 
     # 主循环
     while True:
@@ -106,12 +110,13 @@ def main(path=None):
                     continue
 
                 balance = float(result.get("syje", '0.0'))
-                logger.info(f"房间 {room_name} 当前余额: {balance:.2f}元")
 
                 # 检查余额是否低于阈值
                 if balance < alert_balance:
-                    logger.warning(f"房间 {room_name} 余额低于阈值 ({balance:.2f} < {alert_balance})")
+                    logger.info(f"房间 {room_name} 当前余额: {balance:.2f}元, 低于阈值 ({balance:.2f} < {alert_balance})")
                     alert_rooms.append((room_name, balance))
+                else:
+                    logger.info(f"房间 {room_name} 当前余额: {balance:.2f}元")
 
             # 并行发送通知
             if alert_rooms:
@@ -150,7 +155,7 @@ def main(path=None):
 
         except Exception as e:
             # 处理配置验证失败
-            if "validation" in str(e).lower():
+            if "配置验证失败" in str(e).lower():
                 logger.error(f"配置文件验证失败: {str(e)}")
                 logger.info("10秒后重试配置文件验证...")
                 time.sleep(10)

@@ -233,7 +233,7 @@ class ConfigReader:
 
         except jsonschema.exceptions.SchemaError as e:
             self.logger.critical(
-                f"Config: JSON Schema错误: {e.message}\n"
+                f"JSON Schema错误: {e.message}\n"
                 "请检查Schema文件是否正确"
             )
             raise ValueError(
