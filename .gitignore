@@ -2,3 +2,7 @@
 *.json
 .idea
 *.log
+*.exe
+build
+dist
+logs
