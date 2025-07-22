@@ -22,9 +22,15 @@ def main(path=None):
     # 主循环
     while True:
         try:
+
+            logger.info("===============开始查询===============")
+
             # 验证配置文件
             config_reader.validate()
             logger.info("配置文件验证通过")
+            logger.info("当前配置:")
+            for line in str(config_reader).split("\n"):
+                logger.info(line)
 
             # 读取配置
             username = config_reader.get("username")
