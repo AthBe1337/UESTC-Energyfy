@@ -1,3 +1,4 @@
 # 添加所有.json文件
 *.json
 .idea
+*.log

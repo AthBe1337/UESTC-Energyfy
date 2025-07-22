@@ -6,7 +6,8 @@ import sys
 from pathlib import Path
 import jsonschema
 from jsonschema import validate, Draft7Validator
-from Defaults import _DEFAULT_SCHEMA
+from utils.Defaults import _DEFAULT_SCHEMA
+from utils.Logger import get_logger
 
 
 class ConfigReader:
@@ -19,6 +20,7 @@ class ConfigReader:
                 Linux/Unix: ~/.config/Energyfy/configs/active
             指定路径: 跳过符号链接检查，使用内嵌Schema验证
         """
+        self.logger = get_logger()
         self.config = None
         self.schema = None
         self.is_custom_config = config_path is not None
@@ -28,6 +30,7 @@ class ConfigReader:
             if platform.system() == "Windows":
                 appdata = os.getenv('APPDATA')
                 if not appdata:
+                    self.logger.critical("Config: 无法获取 %APPDATA% 环境变量")
                     raise RuntimeError("无法获取 %APPDATA% 环境变量")
                 config_path = Path(appdata) / "Energyfy" / "configs" / "active"
             else:  # Linux/Unix/Mac
@@ -43,6 +46,7 @@ class ConfigReader:
         """加载并解析JSON配置文件"""
         # 检查文件是否存在
         if not self.config_path.exists():
+            self.logger.critical(f"Config: 配置文件不存在: {self.config_path}")
             raise FileNotFoundError(
                 f"配置文件不存在: {self.config_path}\n"
                 "请确保路径正确且文件已创建"
@@ -62,12 +66,21 @@ class ConfigReader:
         except json.JSONDecodeError as e:
             # 提供更友好的错误位置信息
             line, col = self._find_error_position(e.doc, e.pos)
+            self.logger.critical(
+                f"Config: 配置文件格式错误: {self.config_path}\n"
+                f"错误位置: 行 {line} 列 {col}\n"
+                f"错误信息: {e.msg}"
+            )
             raise RuntimeError(
                 f"配置文件格式错误: {self.config_path}\n"
                 f"错误位置: 行 {line} 列 {col}\n"
                 f"错误信息: {e.msg}"
             ) from e
         except Exception as e:
+            self.logger.critical(
+                f"Config: 读取配置文件失败: {self.config_path}\n"
+                f"错误原因: {str(e)}"
+            )
             raise RuntimeError(
                 f"读取配置文件失败: {self.config_path}\n"
                 f"错误原因: {str(e)}"
@@ -156,6 +169,7 @@ class ConfigReader:
     def validate(self):
         """使用JSON Schema验证配置"""
         if not self.schema:
+            self.logger.critical("Config: 无法加载JSON Schema进行验证")
             raise RuntimeError("无法加载JSON Schema进行验证")
 
         # 创建自定义格式检查器
@@ -206,6 +220,10 @@ class ConfigReader:
 
                     error_messages.append(message)
 
+                self.logger.critical(
+                    f"Config: 配置验证失败，发现以下错误:\n" +
+                    "\n".join(error_messages)
+                )
                 raise ValueError(
                     "配置验证失败，发现以下错误:\n" +
                     "\n".join(error_messages)
@@ -214,6 +232,10 @@ class ConfigReader:
             return True
 
         except jsonschema.exceptions.SchemaError as e:
+            self.logger.critical(
+                f"Config: JSON Schema错误: {e.message}\n"
+                "请检查Schema文件是否正确"
+            )
             raise ValueError(
                 f"Schema错误: {e.message}\n"
                 "请检查Schema文件是否正确"
