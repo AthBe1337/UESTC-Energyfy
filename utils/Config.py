@@ -38,8 +38,6 @@ class ConfigReader:
                 config_path = home / ".config" / "Energyfy" / "configs" / "active"
 
         self.config_path = Path(config_path)
-        self._load_config()
-        self._load_schema()
         self.validate()
 
     def _load_config(self):
@@ -168,6 +166,8 @@ class ConfigReader:
 
     def validate(self):
         """使用JSON Schema验证配置"""
+        self._load_config()
+        self._load_schema()
         if not self.schema:
             self.logger.critical("Config: 无法加载JSON Schema进行验证")
             raise RuntimeError("无法加载JSON Schema进行验证")
