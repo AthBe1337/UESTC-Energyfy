@@ -1,29 +1,48 @@
 # UESTC-Energyfy
 
-查询电子科技大学宿舍的电费余额，在低于阈值时发送邮件通知和Server酱推送。
+查询电子科技大学宿舍的电费余额，在低于阈值时发送邮件通知和*Server酱³*推送。
+
+---
+
+## 目录
+
+- [通知示例](#通知示例)
+- [Server酱³是什么？](#server酱³是什么)
+- [快速开始](#快速开始)
+  - [运行配置管理器](#运行配置管理器)
+  - [运行脚本](#运行脚本)
+- [常见问题](#常见问题)
+- [使用源码](#使用源码)
+  - [1 ConfigManager](#1-configmanager)
+  - [2 手动编辑](#2-手动编辑)
+
+---
 
 ## 通知示例
 
-<img src="https://cloud.athbe.cn/f/Bef9/9USEFCXMK2QMH%602KP%28GX%7DTP.png" width="300" alt="邮件通知示例" />
-<img src="https://cloud.athbe.cn/f/RNtB/578d16a600844487c70255a8e49b6911.jpg" width="300" alt="Server酱推送示例" />
+| 邮件通知                                                     | Server酱推送                                                 |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| <img src="https://cloud.athbe.cn/f/Bef9/9USEFCXMK2QMH%602KP%28GX%7DTP.png" width="400" alt="邮件通知示例" /> | <img src="https://cloud.athbe.cn/f/RNtB/578d16a600844487c70255a8e49b6911.jpg" width="400" alt="Server酱推送示例" /> |
 
-## Server酱是什么？
+## Server酱³是什么？
 
-*Server酱³专注于APP推送，大部分手机无需驻留后台亦可收信。*
+> **Server酱³** 是一款专注于 APP 推送的服务，大部分手机无需后台常驻即可接收消息。
 
-前往[Server酱³ · 极简推送服务](https://sc3.ft07.com/)注册用户以获取`UUID`和`Sendkey`，在配置文件中启用Server酱并填写，在手机上安装应用即可接收推送。
+前往[Server酱³ · 极简推送服务](https://sc3.ft07.com/)注册用户以获取`UUID`和`Sendkey`，在配置文件中启用Server酱并填写，在手机上安装`Server酱`应用即可接收推送。
 
 ## 快速开始
 
-下载对应平台的Release版，解压并进入解压目录。
+前往 [Releases](https://github.com/AthBe1337/UESTC-Energyfy/releases) 下载对应平台的Release版，解压并进入解压目录。
 
 ### 运行配置管理器
+
+为了方便在纯命令行环境下快速编辑配置，这里使用`TUI`配置管理器对配置进行编辑。
 
 ```bash
 ./ConfigManager Energyfy #若不加参数需要在启动后手动输入
 ```
 
-**Windows中请以管理员身份运行**
+>**Windows**中请以管理员身份运行
 
 启动后，会提示输入schema的路径，输入`./schema.json`即可。只有第一次启动需要这个操作。
 
@@ -40,7 +59,7 @@
 #### 注意
 
 1. 查询间隔不要过短，否则账号可能会被冻结，建议至少在10分钟以上。
-2. `queries`、`recipients`和`server_chan`中的`recipients`都是数组，你可以为其添加多个元素，即你可以一次查询多个宿舍，每个宿舍可设置多个收件人。
+2. `queries`、`recipients`和`server_chan`中的`recipients`都是数组，你可以为其添加多个元素，即可一次查询多个宿舍并推送给多人。
 3. 每一项编辑完成后必须点击更新才能生效。
 4. smtp相关设置请到你使用的邮箱官网查询。
 
@@ -52,7 +71,7 @@
 ./Energyfy #Windows中直接双击运行即可。
 ```
 
-启动后，控制台默认会输出运行日志，同时在运行目录的`logs`目录下保存运行日志。
+启动后，控制台默认会输出运行日志，同时在运行目录的`logs/`目录下保存运行日志。
 
 你可以使用`nohup`让脚本后台运行。
 
@@ -62,7 +81,7 @@ nohup ./Energyfy > /dev/null 2>&1 &
 tail -f logs/Energyfy.log
 ```
 
-***你可以保存多份配置文件，并随时切换。脚本默认读取激活配置。***
+>***你可以保存多份配置文件，并随时切换。脚本默认读取激活配置。***
 
 ## 常见问题
 
@@ -105,7 +124,6 @@ make -j$(nproc)
 #运行ConfigManager
 ./ConfigManager Energyfy
 ```
-
 
 ### 2. 手动编辑
 
