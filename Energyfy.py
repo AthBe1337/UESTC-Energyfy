@@ -104,7 +104,7 @@ def send_notifications(room_name, balance, alert_balance, room_config, notificat
                 )
                 logger.info(f"已向Server酱用户 {recipient['uid']} 发送通知")
             except Exception as e:
-                logger.error(f"发送Server酱通知失败: {str(e)}")
+                logger.exception(f"发送Server酱通知失败（用户 {recipient['uid']}）")
 
     # 发送邮件通知
     try:
@@ -116,7 +116,7 @@ def send_notifications(room_name, balance, alert_balance, room_config, notificat
         )
         logger.info(f"已向房间 {room_name} 发送邮件通知")
     except Exception as e:
-        logger.error(f"发送邮件失败: {str(e)}")
+        logger.exception(f"发送邮件失败（房间 {room_name}）")
 
 
 def main(path=None):
@@ -130,7 +130,7 @@ def main(path=None):
             config_reader = ConfigReader(path)
             break
         except Exception as e:
-            logger.error(f"配置文件验证失败: {str(e)}")
+            logger.exception("配置文件验证失败")
             logger.info("30秒后重试配置文件验证...")
             time.sleep(30)
 
@@ -216,7 +216,7 @@ def main(path=None):
                         try:
                             future.result()
                         except Exception as e:
-                            logger.error(f"通知任务异常: {str(e)}")
+                            logger.exception("通知任务异常")
 
             # 处理检查间隔
             if check_interval <= 0:
@@ -227,15 +227,9 @@ def main(path=None):
             time.sleep(check_interval)
 
         except Exception as e:
-            # 处理配置验证失败
-            if "配置验证失败" in str(e).lower():
-                logger.error(f"配置文件验证失败: {str(e)}")
-                logger.info("10秒后重试配置文件验证...")
-                time.sleep(10)
-            else:
-                logger.error(f"主程序发生未处理异常: \n{str(e)}")
-                logger.info("30秒后重新启动...")
-                time.sleep(30)
+            logger.exception("主程序发生未处理异常")
+            logger.info("30秒后重新启动...")
+            time.sleep(30)
 
 
 if __name__ == "__main__":

@@ -35,9 +35,9 @@ class RoomInfo:
 
             return js_response.text
         except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"请求失败: {str(e)}")
+            raise RuntimeError("请求加密JS失败") from e
         except Exception as e:
-            raise RuntimeError(f"获取动态JS时出错: {str(e)}")
+            raise RuntimeError("获取动态JS时出错") from e
 
 
     def create_js_context(self, js_code):
@@ -55,7 +55,7 @@ class RoomInfo:
             try:
                 return execjs.get("Node").compile(js_code)
             except Exception as e2:
-                raise RuntimeError(f"JS编译错误: {str(e)} 和 {str(e2)}")
+                raise RuntimeError("JS 编译错误（默认环境和 Node 都失败）") from e2
 
 
     def follow_redirects(self, session, start_url, max_redirects=10):
@@ -98,7 +98,7 @@ class RoomInfo:
                     # 非重定向响应，返回最终结果
                     return response, redirect_history
             except requests.exceptions.RequestException as e:
-                raise RuntimeError(f"重定向请求失败: {str(e)}")
+                raise RuntimeError("重定向请求失败") from e
 
         # 超出最大重定向次数
         raise RuntimeError(f"超过最大重定向次数 ({max_redirects})")
@@ -137,7 +137,7 @@ class RoomInfo:
             # 加密密码
             encrypted_pwd = js_ctx.call("encryptPasswordForPython", self.PASSWORD, salt)
         except Exception as e:
-            raise RuntimeError(f"初始化错误: {str(e)}")
+            raise RuntimeError("初始化登录环境失败") from e
 
         # 构造登录载荷
         payload = {
@@ -178,14 +178,14 @@ class RoomInfo:
             # 返回最终响应、重定向历史和所有cookie
             return final_response, session.cookies.get_dict(), redirect_history
         except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"登录请求失败: {str(e)}")
+            raise RuntimeError("登录请求失败") from e
 
     def get(self, queries):
         try:
             final_response, cookies, redirect_history = self.login()
 
             if not final_response or not cookies:
-                raise RuntimeError("登录失败")
+                raise RuntimeError("登录失败，未获取有效会话")
 
             result = []
 
@@ -216,6 +216,6 @@ class RoomInfo:
 
             return result
         except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"请求发生错误: {str(e)}")
+            raise RuntimeError("宿舍信息请求失败") from e
         except Exception as e:
-            raise RuntimeError(f"获取宿舍信息时出错: {str(e)}")
+            raise RuntimeError("获取宿舍信息时出错") from e

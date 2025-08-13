@@ -98,11 +98,11 @@ class NotificationManager:
             server.quit()
             return True
         except smtplib.SMTPException as e:
-            raise RuntimeError(f"SMTP协议错误: {str(e)}") from e
+            raise RuntimeError("SMTP协议错误") from e
         except TimeoutError as e:
-            raise RuntimeError(f"连接邮件服务器超时: {str(e)}") from e
+            raise RuntimeError("连接邮件服务器超时") from e
         except Exception as e:
-            raise RuntimeError(f"邮件发送失败: {str(e)}") from e
+            raise RuntimeError("邮件发送失败") from e
 
     def send_server_chan(self, uid, sendkey, title=None, text=None,
                          desp=None, tags=None, short=None):
@@ -161,10 +161,10 @@ class NotificationManager:
                 error_detail = e.response.text
             raise RuntimeError(f"Server酱推送失败: HTTP错误 {e.response.status_code} - {error_detail}") from e
         except requests.exceptions.ConnectionError as e:
-            raise RuntimeError(f"网络连接错误: {str(e)}") from e
+            raise RuntimeError("网络连接错误") from e
         except requests.exceptions.Timeout as e:
-            raise RuntimeError(f"请求超时: {str(e)}") from e
+            raise RuntimeError("请求超时") from e
         except requests.exceptions.RequestException as e:
-            raise RuntimeError(f"请求异常: {str(e)}") from e
+            raise RuntimeError("请求异常") from e
         except Exception as e:
-            raise RuntimeError(f"Server酱推送失败: {str(e)}") from e
+            raise RuntimeError("Server酱推送失败") from e
