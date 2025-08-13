@@ -1,3 +1,4 @@
+__version__ = "1.2.0"
 import sys
 import time
 import argparse
@@ -20,6 +21,13 @@ def parse_args():
         if path_str is None:
             return None
         return os.path.abspath(os.path.expanduser(path_str))
+
+    parser.add_argument(
+        "-v", "--version",
+        action="version",
+        version=f"UESTC-Energyfy {__version__}",
+        help="显示版本信息并退出"
+    )
 
     parser.add_argument(
         "-c", "--config",
