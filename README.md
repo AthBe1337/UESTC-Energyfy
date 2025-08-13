@@ -36,7 +36,7 @@
 
 ### 运行配置管理器
 
-为了方便在纯命令行环境下快速编辑配置，这里使用`TUI`配置管理器对配置进行编辑。
+为了方便在纯命令行环境(如ssh)下快速编辑配置，这里使用`TUI`配置管理器对配置进行编辑。
 
 ```bash
 ./ConfigManager Energyfy #若不加参数需要在启动后手动输入
@@ -102,11 +102,18 @@ tail -f logs/Energyfy.log
 - `-h` `--help` 显示帮助信息
 - `-c` `--config` 指定配置文件路径
 - `-v` `--version` 显示版本信息
-- `-l` `--log-level` 设置日志等级(DEBUG|INFO|WARNING|ERROR|CRITICAL)
+- `-l` `--log-level` 设置日志等级`(DEBUG|INFO|WARNING|ERROR|CRITICAL)`，默认为`INFO`
 - `--no-log-to-console` 禁用控制台输出日志
 - `--no-log-to-file` 禁用文件输出日志
-- `-f` `--log-file` 指定日志文件路径
-- `-b` `--backup-count` 指定日志文件备份数量
+- `-f` `--log-file` 指定日志文件路径，默认为`logs/Energyfy.log`
+- `-b` `--backup-count` 指定日志文件备份数量，默认为`7`
+
+**示例用法**
+```bash
+./Energyfy -c config.json #使用./config.json作为配置文件
+./Energyfy -l DEBUG -f logs/Energyfy.log #使用DEBUG级别日志，将日志输出到logs/Energyfy.log
+./Energyfy -b 10 #指定日志文件备份数量为10
+```
 
 ## 使用源码
 
