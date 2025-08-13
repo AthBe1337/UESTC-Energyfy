@@ -27,7 +27,6 @@ class RoomInfo:
             # 查找加密JS的script标签
             js_script = soup.find('script', {'src': re.compile(r'/authserver/uestcTheme/static/common/encrypt\.js\?v=.*')})
             if not js_script:
-                self.logger.error("RoomInfo: 无法找到加密JS文件")
                 raise RuntimeError("无法找到加密JS文件")
 
             js_url = self.BASE_URL + js_script['src']
@@ -36,10 +35,8 @@ class RoomInfo:
 
             return js_response.text
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"RoomInfo: 请求失败: {str(e)}")
             raise RuntimeError(f"请求失败: {str(e)}")
         except Exception as e:
-            self.logger.error(f"RoomInfo: 获取动态JS时出错: {str(e)}")
             raise RuntimeError(f"获取动态JS时出错: {str(e)}")
 
 
@@ -58,7 +55,6 @@ class RoomInfo:
             try:
                 return execjs.get("Node").compile(js_code)
             except Exception as e2:
-                self.logger.error(f"RoomInfo: JS编译错误: {str(e)}")
                 raise RuntimeError(f"JS编译错误: {str(e)} 和 {str(e2)}")
 
 
@@ -97,17 +93,14 @@ class RoomInfo:
                                 location = base_url + '/' + location
                         current_url = location
                     else:
-                        self.logger.error("RoomInfo: 重定向响应缺少Location头")
                         raise RuntimeError("重定向响应缺少Location头")
                 else:
                     # 非重定向响应，返回最终结果
                     return response, redirect_history
             except requests.exceptions.RequestException as e:
-                self.logger.error(f"RoomInfo: 请求失败: {str(e)}")
                 raise RuntimeError(f"重定向请求失败: {str(e)}")
 
         # 超出最大重定向次数
-        self.logger.error(f"RoomInfo: 超过最大重定向次数 ({max_redirects})")
         raise RuntimeError(f"超过最大重定向次数 ({max_redirects})")
 
 
@@ -135,7 +128,6 @@ class RoomInfo:
             # 提取参数
             execution = soup.find('input', {'name': 'execution'})
             if not execution:
-                self.logger.error("RoomInfo: 找不到execution参数")
                 raise ValueError("无法找到execution参数")
             execution = execution.get('value', '')
 
@@ -145,7 +137,6 @@ class RoomInfo:
             # 加密密码
             encrypted_pwd = js_ctx.call("encryptPasswordForPython", self.PASSWORD, salt)
         except Exception as e:
-            self.logger.error(f"RoomInfo: 初始化错误: {str(e)}")
             raise RuntimeError(f"初始化错误: {str(e)}")
 
         # 构造登录载荷
@@ -173,12 +164,10 @@ class RoomInfo:
 
             # 检查登录响应
             if login_response.status_code not in (301, 302, 303, 307, 308):
-                self.logger.error(f"RoomInfo: 登录失败! 状态码: {login_response.status_code}")
                 raise RuntimeError(f"登录失败! 状态码: {login_response.status_code}")
 
             # 获取重定向URL
             if 'Location' not in login_response.headers:
-                self.logger.error("RoomInfo: 登录响应缺少Location头")
                 raise RuntimeError("登录响应缺少重定向Location头")
 
             redirect_url = login_response.headers['Location']
@@ -189,7 +178,6 @@ class RoomInfo:
             # 返回最终响应、重定向历史和所有cookie
             return final_response, session.cookies.get_dict(), redirect_history
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"RoomInfo: 登录请求失败: {str(e)}")
             raise RuntimeError(f"登录请求失败: {str(e)}")
 
     def get(self, queries):
@@ -197,7 +185,6 @@ class RoomInfo:
             final_response, cookies, redirect_history = self.login()
 
             if not final_response or not cookies:
-                self.logger.error("RoomInfo: 登录失败")
                 raise RuntimeError("登录失败")
 
             result = []
@@ -224,13 +211,11 @@ class RoomInfo:
                 if response_json['retcode'] == 0:
                     result.append((str(query), response_json))
                 else:
-                    self.logger.warning(f"RoomInfo: 获取宿舍 {query} 信息失败: {response_json['retmsg']}")
+                    self.logger.warning(f"RoomInfo: 获取宿舍 {query} 信息失败: {response_json['msg']}")
                     result.append((str(query), None))
 
             return result
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"RoomInfo: 请求发生错误: {str(e)}")
             raise RuntimeError(f"请求发生错误: {str(e)}")
         except Exception as e:
-            self.logger.error(f"RoomInfo: 获取宿舍信息时出错: {str(e)}")
             raise RuntimeError(f"获取宿舍信息时出错: {str(e)}")

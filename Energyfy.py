@@ -56,7 +56,7 @@ def main(path=None):
             config_reader = ConfigReader(path)
             break
         except Exception as e:
-            logger.error(f"配置文件验证失败")
+            logger.error(f"配置文件验证失败: {str(e)}")
             logger.info("30秒后重试配置文件验证...")
             time.sleep(30)
 

@@ -2,123 +2,126 @@ import datetime
 
 # 内嵌的默认 Schema
 _DEFAULT_SCHEMA = {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "Energyfy Config Schema",
-    "type": "object",
-    "properties": {
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Energyfy Config Schema",
+  "type": "object",
+  "properties": {
+    "username": {
+      "type": "string",
+      "description": "你的学号，会用这个学号的统一认证平台账号发送请求。"
+    },
+    "password": {
+      "type": "string",
+      "description": "统一认证平台密码。"
+    },
+    "check_interval": {
+      "type": "integer",
+      "default": 600,
+      "minimum": 0,
+      "description": "余额检查间隔时间（秒），0表示单次检查后退出。"
+    },
+    "alert_balance": {
+      "type": "number",
+      "default": 10,
+      "minimum": 0,
+      "description": "余额告警阈值（单位：元），可以填小数，低于此值触发通知。"
+    },
+    "smtp": {
+      "type": "object",
+      "description": "SMTP邮件服务器配置，用于发送余额告警邮件，详细信息可以到你使用的邮箱官网查询。",
+      "properties": {
+        "server": {
+          "type": "string",
+          "format": "hostname",
+          "description": "SMTP服务器主机名或IP地址。如果你不知道是什么，可以尝试在域名前加上\"smtp\"，例如qq邮箱为smtp.qq.com，gmail为smtp.gmail.com。"
+        },
+        "port": {
+          "type": "integer",
+          "default": 465,
+          "minimum": 1,
+          "maximum": 65535,
+          "description": "SMTP服务器端口号。"
+        },
         "username": {
-            "type": "string",
-            "description": "你的学号，会用这个学号的统一认证平台账号发送请求"
+          "type": "string",
+          "description": "SMTP认证用户名，一般为你的邮箱。"
         },
         "password": {
+          "type": "string",
+          "description": "SMTP认证密码。"
+        },
+        "security": {
+          "type": "string",
+          "enum": ["ssl", "tls", "none"],
+          "description": "连接安全协议：ssl(强制SSL)、tls(STARTTLS)、none(无加密)。"
+        }
+      },
+      "required": ["server", "port", "username", "password", "security"],
+      "additionalProperties": False
+    },
+    "queries": {
+      "type": "array",
+      "minItems": 1,
+      "description": "监控配置列表，每个元素对应一个宿舍的监控设置，可以添加多个宿舍。",
+      "items": {
+        "type": "object",
+        "description": "具体的监控设置，请在下方编辑。",
+        "properties": {
+          "room_name": {
             "type": "string",
-            "description": "统一认证平台密码"
-        },
-        "check_interval": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "余额检查间隔时间（秒），0表示单次检查后退出"
-        },
-        "alert_balance": {
-            "type": "number",
-            "minimum": 0,
-            "description": "余额告警阈值（单位：元），可以填小数，低于此值触发通知"
-        },
-        "smtp": {
-            "type": "object",
-            "description": "SMTP邮件服务器配置，用于发送余额告警邮件",
-            "properties": {
-                "server": {
-                    "type": "string",
-                    "format": "hostname",
-                    "description": "SMTP服务器主机名或IP地址"
-                },
-                "port": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 65535,
-                    "description": "SMTP服务器端口号"
-                },
-                "username": {
-                    "type": "string",
-                    "description": "SMTP认证用户名"
-                },
-                "password": {
-                    "type": "string",
-                    "description": "SMTP认证密码"
-                },
-                "security": {
-                    "type": "string",
-                    "enum": ["ssl", "tls", "none"],
-                    "description": "连接安全协议：ssl(强制SSL)、tls(STARTTLS)、none(无加密)"
-                }
-            },
-            "required": ["server", "port", "username", "password", "security"],
-            "additionalProperties": False
-        },
-        "queries": {
+            "description": "房间编号,研究生0开头，本科生1开头，剩下是楼栋+宿舍号。例如，本科14栋514宿舍，编号为114514。"
+          },
+          "recipients": {
             "type": "array",
             "minItems": 1,
-            "description": "监控配置列表，每个元素对应一个宿舍的监控设置",
+            "description": "邮件通知收件人列表。",
             "items": {
-                "type": "object",
-                "description": "具体的监控设置，请在下方编辑",
-                "properties": {
-                    "room_name": {
-                        "type": "string",
-                        "description": "房间编号,研究生0开头，本科生1开头，剩下是楼栋+宿舍号。"
-                    },
-                    "recipients": {
-                        "type": "array",
-                        "minItems": 1,
-                        "description": "邮件通知收件人列表",
-                        "items": {
-                            "type": "string",
-                            "format": "email",
-                            "description": "有效的电子邮件地址"
-                        }
-                    },
-                    "server_chan": {
-                        "type": "object",
-                        "description": "Server酱配置，详情请访问https://sc3.ft07.com/",
-                        "properties": {
-                            "enabled": {
-                                "type": "boolean",
-                                "description": "是否启用Server酱推送"
-                            },
-                            "recipients": {
-                                "type": "array",
-                                "minItems": 1,
-                                "description": "Server酱推送收件人列表，如未启用可留空",
-                                "items": {
-                                    "type": "object",
-                                    "description": "两项都必须填",
-                                    "properties": {
-                                        "uid": {
-                                            "type": "string",
-                                            "description": "Server酱用户UID"
-                                        },
-                                        "sendkey": {
-                                            "type": "string",
-                                            "description": "Server酱发送密钥"
-                                        }
-                                    },
-                                    "required": ["uid", "sendkey"],
-                                    "additionalProperties": False
-                                }
-                            }
-                        },
-                        "required": ["enabled", "recipients"],
-                        "additionalProperties": False
-                    }
-                },
-                "required": ["room_name", "recipients", "server_chan"],
-                "additionalProperties": False
+              "type": "string",
+              "format": "email",
+              "description": "收件人邮箱，请输入有效的电子邮件地址。"
             }
-        }
-    },
-    "required": ["username", "password", "check_interval", "alert_balance", "smtp", "queries"],
-    "additionalProperties": False
+          },
+          "server_chan": {
+            "type": "object",
+            "description": "Server酱配置，访问https://sc3.ft07.com/获取UUID和Sendkey。",
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": "是否启用Server酱推送。"
+              },
+              "recipients": {
+                "type": "array",
+                "minItems": 1,
+                "description": "Server酱推送收件人列表，如未启用可留空。",
+                "items": {
+                  "type": "object",
+                  "description": "填入UUID和Sendkey，两项都必须填。",
+                  "properties": {
+                    "uid": {
+                      "type": "string",
+                      "description": "Server酱用户UID。"
+                    },
+                    "sendkey": {
+                      "type": "string",
+                      "description": "Server酱发送密钥。"
+                    }
+                  },
+                  "required": ["uid", "sendkey"],
+                  "additionalProperties": False
+                }
+              }
+            },
+            "required": ["enabled", "recipients"],
+            "additionalProperties": False
+          }
+        },
+        "required": ["room_name", "recipients", "server_chan"],
+        "additionalProperties": False
+      }
+    }
+  },
+  "required": ["username", "password", "check_interval", "alert_balance", "smtp", "queries"],
+  "additionalProperties": False
 }
 
 
