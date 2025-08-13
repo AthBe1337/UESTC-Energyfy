@@ -15,7 +15,7 @@
       "type": "integer",
       "default": 600,
       "minimum": 0,
-      "description": "余额检查间隔时间（秒），0表示单次检查后退出。"
+      "description": "余额检查间隔时间（秒），如 600=10 分钟，3600=1 小时。0表示单次检查后退出。"
     },
     "alert_balance": {
       "type": "number",
@@ -37,7 +37,7 @@
           "default": 465,
           "minimum": 1,
           "maximum": 65535,
-          "description": "SMTP服务器端口号。"
+          "description": "SMTP服务器端口号。一般情况下，465(SSL)、587(TLS)、25(无加密)。"
         },
         "username": {
           "type": "string",
@@ -45,7 +45,7 @@
         },
         "password": {
           "type": "string",
-          "description": "SMTP认证密码。"
+          "description": "SMTP认证密码。部分邮箱需要“授权码”而不是真实密码，可以去你使用的邮箱官网申请。"
         },
         "security": {
           "type": "string",
@@ -66,7 +66,7 @@
         "properties": {
           "room_name": {
             "type": "string",
-            "description": "房间编号,研究生0开头，本科生1开头，剩下是楼栋+宿舍号。例如，本科14栋514宿舍，编号为114514。"
+            "description": "房间编号,研究生2开头，本科生1开头，剩下是楼栋+宿舍号。例如，本科14栋514宿舍，编号为114514。"
           },
           "recipients": {
             "type": "array",
@@ -80,7 +80,7 @@
           },
           "server_chan": {
             "type": "object",
-            "description": "Server酱配置，访问https://sc3.ft07.com/获取UUID和Sendkey。",
+            "description": "Server酱配置，访问https://sc3.ft07.com/免费注册用户后获取UUID和Sendkey。",
             "properties": {
               "enabled": {
                 "type": "boolean",
