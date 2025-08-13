@@ -3,8 +3,6 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import requests
 import json
-from utils.Logger import get_logger
-
 
 class NotificationManager:
     def __init__(self, email_host=None, email_port=None, encryption='none',
@@ -18,7 +16,6 @@ class NotificationManager:
         :param email_password: SMTP密码
         :param email_sender: 发件人邮箱
         """
-        self.logger = get_logger()
         self.email_config = {
             'host': email_host,
             'port': email_port,
@@ -42,24 +39,20 @@ class NotificationManager:
         # 检查邮件配置是否完整
         missing_configs = [k for k, v in self.email_config.items() if v is None]
         if missing_configs:
-            self.logger.error(f"NMng.send_email: 邮件配置不完整，缺少以下参数: {', '.join(missing_configs)}")
             raise ValueError(f"邮件配置不完整，缺少以下参数: {', '.join(missing_configs)}")
 
         # 验证内容参数
         if not text_content and not html_content:
-            self.logger.error("NMng.send_email: 必须提供 text_content 或 html_content 至少一种内容格式")
             raise ValueError("必须提供 text_content 或 html_content 至少一种内容格式")
 
         # 验证收件人参数
         if not recipients:
-            self.logger.error("NMng.send_email: 收件人列表不能为空")
             raise ValueError("收件人列表不能为空")
 
         # 收件人格式处理
         if isinstance(recipients, str):
             recipients = [recipients]
         elif not isinstance(recipients, list):
-            self.logger.error("NMng.send_email: 收件人必须是字符串或字符串列表")
             raise TypeError("收件人必须是字符串或字符串列表")
 
         # 创建邮件对象
@@ -105,13 +98,10 @@ class NotificationManager:
             server.quit()
             return True
         except smtplib.SMTPException as e:
-            self.logger.error(f"NMng.send_email: SMTP协议错误: {str(e)}")
             raise RuntimeError(f"SMTP协议错误: {str(e)}") from e
         except TimeoutError as e:
-            self.logger.error(f"NMng.send_email: 连接邮件服务器超时: {str(e)}")
             raise RuntimeError(f"连接邮件服务器超时: {str(e)}") from e
         except Exception as e:
-            self.logger.error(f"NMng.send_email: 邮件发送失败: {str(e)}")
             raise RuntimeError(f"邮件发送失败: {str(e)}") from e
 
     def send_server_chan(self, uid, sendkey, title=None, text=None,
@@ -131,10 +121,8 @@ class NotificationManager:
         """
         # 参数校验
         if not title and not text:
-            self.logger.error("NMng.send_server_chan: 必须提供 title 或 text 参数")
             raise ValueError("必须提供 title 或 text 参数")
         if not uid or not sendkey:
-            self.logger.error("NMng.send_server_chan: uid 和 sendkey 不能为空")
             raise ValueError("uid 和 sendkey 不能为空")
 
         # 构建请求URL
@@ -171,17 +159,12 @@ class NotificationManager:
                 error_detail = e.response.json().get('message', '无详细错误信息')
             except:
                 error_detail = e.response.text
-            self.logger.error(f"NMng.send_server_chan: Server酱推送失败: HTTP错误 {e.response.status_code} - {error_detail}")
             raise RuntimeError(f"Server酱推送失败: HTTP错误 {e.response.status_code} - {error_detail}") from e
         except requests.exceptions.ConnectionError as e:
-            self.logger.error(f"NMng.send_server_chan: 网络连接错误: {str(e)}")
             raise RuntimeError(f"网络连接错误: {str(e)}") from e
         except requests.exceptions.Timeout as e:
-            self.logger.error(f"NMng.send_server_chan: 请求超时: {str(e)}")
             raise RuntimeError(f"请求超时: {str(e)}") from e
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"NMng.send_server_chan: 请求异常: {str(e)}")
             raise RuntimeError(f"请求异常: {str(e)}") from e
         except Exception as e:
-            self.logger.error(f"NMng.send_server_chan: Server酱推送失败: {str(e)}")
             raise RuntimeError(f"Server酱推送失败: {str(e)}") from e
