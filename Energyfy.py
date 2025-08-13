@@ -1,5 +1,7 @@
 import sys
 import time
+import argparse
+import os
 import concurrent.futures
 from utils import Defaults
 from utils.Config import ConfigReader
@@ -7,6 +9,78 @@ from utils.RoomInfo import RoomInfo
 from utils.NotificationManager import NotificationManager
 from utils.Logger import get_logger
 
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="UESTC-Energyfy 电子科大宿舍电费余额告警服务"
+    )
+
+    def abs_path(path_str):
+        """将路径转换为绝对路径并展开用户目录"""
+        if path_str is None:
+            return None
+        return os.path.abspath(os.path.expanduser(path_str))
+
+    parser.add_argument(
+        "-c", "--config",
+        help="指定配置文件路径",
+        type=abs_path,   # 自动解析路径
+        default=None
+    )
+    parser.add_argument(
+        "-l", "--log-level",
+        help="日志等级（DEBUG/INFO/WARNING/ERROR/CRITICAL）",
+        type=str.upper,  # 自动转大写
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+    )
+
+    # 双向布尔参数 - 控制台日志
+    log_console_group = parser.add_mutually_exclusive_group()
+    log_console_group.add_argument(
+        "--log-to-console",
+        dest="log_to_console",
+        action="store_true",
+        help="启用日志输出到控制台（默认开启）"
+    )
+    log_console_group.add_argument(
+        "--no-log-to-console",
+        dest="log_to_console",
+        action="store_false",
+        help="禁用日志输出到控制台"
+    )
+    parser.set_defaults(log_to_console=True)
+
+    # 双向布尔参数 - 文件日志
+    log_file_group = parser.add_mutually_exclusive_group()
+    log_file_group.add_argument(
+        "--log-to-file",
+        dest="log_to_file",
+        action="store_true",
+        help="启用日志输出到文件（默认开启）"
+    )
+    log_file_group.add_argument(
+        "--no-log-to-file",
+        dest="log_to_file",
+        action="store_false",
+        help="禁用日志输出到文件"
+    )
+    parser.set_defaults(log_to_file=True)
+
+    parser.add_argument(
+        "-f", "--log-file",
+        help="日志文件路径",
+        type=abs_path,  # 日志文件路径也支持绝对化
+        default=abs_path("logs/Energyfy.log")
+    )
+    parser.add_argument(
+        "-b", "--backup-count",
+        help="日志备份数量",
+        type=int,
+        default=7
+    )
+
+    return parser.parse_args()
 
 def send_notifications(room_name, balance, alert_balance, room_config, notification):
     """并行发送通知的辅助函数"""
@@ -26,7 +100,7 @@ def send_notifications(room_name, balance, alert_balance, room_config, notificat
                     sendkey=recipient["sendkey"],
                     title="电费余额告警",
                     desp=markdown_content,
-                    short="快去交电费!!!",
+                    short="宿舍电费余额不足，请尽快缴费!",
                 )
                 logger.info(f"已向Server酱用户 {recipient['uid']} 发送通知")
             except Exception as e:
@@ -159,14 +233,19 @@ def main(path=None):
                 logger.info("10秒后重试配置文件验证...")
                 time.sleep(10)
             else:
-                logger.error(f"主程序发生未处理异常: {str(e)}")
+                logger.error(f"主程序发生未处理异常: \n{str(e)}")
                 logger.info("30秒后重新启动...")
                 time.sleep(30)
 
 
 if __name__ == "__main__":
-    # 存在参数时，使用第一个参数作为配置文件路径
-    if len(sys.argv) > 1:
-        main(sys.argv[1])
-    else:
-        main()
+    args = parse_args()
+    get_logger(
+        name="Energyfy",
+        log_level=getattr(sys.modules["logging"], args.log_level),
+        log_to_console=args.log_to_console,
+        log_to_file=args.log_to_file,
+        log_file=args.log_file,
+        backup_count=args.backup_count
+    )
+    main(args.config)
