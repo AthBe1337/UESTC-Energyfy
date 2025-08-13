@@ -79,16 +79,18 @@ class Logger:
 
 
 # 全局访问点
-def get_logger():
-    """获取全局日志实例"""
+def get_logger(name="Energyfy", log_level=logging.INFO,
+               log_to_console=True, log_to_file=True,
+               log_file="logs/Energyfy.log", backup_count=7):
+    """获取全局日志实例，支持重载配置"""
     if Logger._instance is None:
-        # 默认配置初始化
+        # 如果实例未初始化，使用传入的配置初始化 Logger
         Logger(
-            name="Energyfy",
-            log_level=logging.INFO,
-            log_to_console=True,
-            log_to_file=True,
-            log_file="logs/Energyfy.log",
-            backup_count=7
+            name=name,
+            log_level=log_level,
+            log_to_console=log_to_console,
+            log_to_file=log_to_file,
+            log_file=log_file,
+            backup_count=backup_count
         )
     return Logger._instance
