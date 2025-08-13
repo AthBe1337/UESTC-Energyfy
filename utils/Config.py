@@ -7,6 +7,7 @@ from pathlib import Path
 import jsonschema
 from jsonschema import validate, Draft7Validator
 from utils.Defaults import _DEFAULT_SCHEMA
+from utils.Logger import get_logger
 
 
 class ConfigReader:
@@ -19,6 +20,8 @@ class ConfigReader:
                 Linux/Unix: ~/.config/Energyfy/configs/active
             指定路径: 跳过符号链接检查，使用内嵌Schema验证
         """
+        self.logger = get_logger()
+        self.logger.debug("[ConfigReader] 初始化 ConfigReader，config_path=%s", config_path)
         self.config = None
         self.schema = None
         self.is_custom_config = config_path is not None
@@ -35,10 +38,13 @@ class ConfigReader:
                 config_path = home / ".config" / "Energyfy" / "configs" / "active"
 
         self.config_path = Path(config_path)
+        self.logger.debug("[ConfigReader] 最终使用的配置文件路径: %s", self.config_path)
         self.validate()
 
     def _load_config(self):
         """加载并解析JSON配置文件"""
+        self.logger.debug("[ConfigReader._load_config] 开始加载配置文件: %s", self.config_path)
+
         # 检查文件是否存在
         if not self.config_path.exists():
             raise FileNotFoundError(
@@ -57,6 +63,7 @@ class ConfigReader:
         try:
             with open(self.config_path, 'r', encoding='utf-8') as f:
                 self.config = json.load(f)
+            self.logger.debug("[ConfigReader._load_config] 配置文件加载成功")
         except json.JSONDecodeError as e:
             # 提供更友好的错误位置信息
             line, col = self._find_error_position(e.doc, e.pos)
@@ -83,13 +90,16 @@ class ConfigReader:
 
     def _load_schema(self):
         """加载JSON Schema进行验证"""
+        self.logger.debug("[ConfigReader._load_schema] 开始加载 Schema")
         # 对于自定义配置路径，使用内嵌Schema
         if self.is_custom_config:
             self.schema = _DEFAULT_SCHEMA
+            self.logger.debug("[ConfigReader._load_schema] 使用内嵌 Schema")
             return
 
         # 对于默认配置路径，从文件加载Schema
         schema_path = self.config_path.parent.parent / "schema.json"
+        self.logger.debug("[ConfigReader._load_schema] Schema 路径: %s", schema_path)
 
         # 检查schema文件是否存在
         if not schema_path.exists():
@@ -104,6 +114,7 @@ class ConfigReader:
         try:
             with open(schema_path, 'r', encoding='utf-8') as f:
                 self.schema = json.load(f)
+            self.logger.debug("[ConfigReader._load_schema] Schema 加载成功")
         except json.JSONDecodeError as e:
             print(
                 f"警告: Schema文件格式错误: {schema_path}\n"
@@ -129,7 +140,9 @@ class ConfigReader:
         :param default: 找不到配置时的默认值
         :return: 配置值或默认值
         """
+        self.logger.debug("[ConfigReader.get] 读取配置项: %s (默认值=%s)", key_path, default)
         if not self.config:
+            self.logger.debug("[ConfigReader.get] 配置尚未加载，返回默认值")
             return default
 
         keys = key_path.split('.')
@@ -141,18 +154,23 @@ class ConfigReader:
                 if isinstance(current, list) and key.isdigit():
                     index = int(key)
                     if index >= len(current):
+                        self.logger.debug("[ConfigReader.get] 索引 %d 超出范围，返回默认值", index)
                         return default
                     current = current[index]
                 elif isinstance(current, dict) and key in current:
                     current = current[key]
                 else:
+                    self.logger.debug("[ConfigReader.get] 键 %s 不存在，返回默认值", key)
                     return default
+            self.logger.debug("[ConfigReader.get] 获取到的配置值: %s", current)
             return current
-        except (KeyError, IndexError, TypeError):
+        except (KeyError, IndexError, TypeError) as e:
+            self.logger.debug("[ConfigReader.get] 访问配置项出错: %s", e)
             return default
 
     def validate(self):
         """使用JSON Schema验证配置"""
+        self.logger.debug("[ConfigReader.validate] 开始验证配置文件")
         self._load_config()
         self._load_schema()
         if not self.schema:
@@ -205,12 +223,13 @@ class ConfigReader:
                         message += f" | {context}"
 
                     error_messages.append(message)
+                    self.logger.debug("[ConfigReader.validate] 验证错误: %s", message)
 
                 raise ValueError(
                     "配置验证失败，发现以下错误:\n" +
                     "\n".join(error_messages)
                 )
-
+            self.logger.debug("[ConfigReader.validate] 配置验证成功")
             return True
 
         except jsonschema.exceptions.SchemaError as e:
