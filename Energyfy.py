@@ -85,15 +85,20 @@ def parse_args():
 def send_notifications(room_name, balance, alert_balance, room_config, notification):
     """并行发送通知的辅助函数"""
     logger = get_logger()
+    logger.debug("[send_notifications] 准备发送通知 -> 房间: %s, 当前余额: %s, 阈值: %s",
+                 room_name, balance, alert_balance)
+    logger.debug("[send_notifications] 通知配置: %s", room_config)
 
     # 准备通知内容
     text_content = Defaults.generate_text_email(room_name, balance, alert_balance)
     html_content = Defaults.generate_html_email(room_name, balance, alert_balance)
     markdown_content = Defaults.generate_markdown_notification(room_name, balance, alert_balance)
+    logger.debug("[send_notifications] 已生成通知内容（text/html/markdown）")
 
     # 发送Server酱通知
     if room_config["server_chan"]["enabled"]:
         for recipient in room_config["server_chan"]["recipients"]:
+            logger.debug("[send_notifications] 准备发送 Server酱 -> UID: %s", recipient['uid'])
             try:
                 notification.send_server_chan(
                     uid=recipient["uid"],
@@ -107,6 +112,7 @@ def send_notifications(room_name, balance, alert_balance, room_config, notificat
                 logger.exception(f"发送Server酱通知失败（用户 {recipient['uid']}）")
 
     # 发送邮件通知
+    logger.debug("[send_notifications] 准备发送邮件 -> 收件人: %s", room_config['recipients'])
     try:
         notification.send_email(
             recipients=room_config["recipients"],
@@ -123,11 +129,14 @@ def main(path=None):
     # 初始化日志
     logger = get_logger()
     logger.info("UESTC-Energyfy 已启动...")
+    logger.debug("[main] 启动参数 -> 指定配置文件路径: %s", path if path else "无")
 
     # 初始化配置读取器
     while True:
         try:
+            logger.debug("[main] 尝试加载配置文件...")
             config_reader = ConfigReader(path)
+            logger.debug("[main] 配置文件加载成功")
             break
         except Exception as e:
             logger.exception("配置文件验证失败")
@@ -141,6 +150,7 @@ def main(path=None):
             logger.info("===============开始查询===============")
 
             # 验证配置文件
+            logger.debug("[main] 开始验证配置文件...")
             config_reader.validate()
             logger.info("配置文件验证通过")
             logger.info("当前配置:")
@@ -154,8 +164,10 @@ def main(path=None):
             alert_balance = config_reader.get("alert_balance")
             smtp_config = config_reader.get("smtp")
             queries = config_reader.get("queries")
-
+            logger.debug("[main] 已加载配置 -> 用户: %s, 检查间隔: %s, 阈值: %s, 查询数: %s",
+                         username, check_interval, alert_balance, len(queries))
             # 初始化通知管理器
+            logger.debug("[main] 初始化 NotificationManager")
             notification = NotificationManager(
                 email_host=smtp_config["server"],
                 email_port=smtp_config["port"],
@@ -166,6 +178,7 @@ def main(path=None):
             )
 
             # 初始化房间信息查询器
+            logger.debug("[main] 初始化 RoomInfo")
             room_info = RoomInfo(username, password)
 
             # 获取所有房间名称
@@ -173,11 +186,15 @@ def main(path=None):
 
             # 查询房间余额
             logger.info(f"开始查询{len(room_names)}个房间的余额信息")
+            logger.debug("[main] 查询房间列表: %s", room_names)
+
             results = room_info.get(room_names)
+            logger.debug("[main] 查询结果原始数据: %s", results)
 
             # 处理需要通知的房间
             alert_rooms = []
             for room_name, result in results:
+                logger.debug("[main] 处理查询结果 -> 房间: %s, 数据: %s", room_name, result)
                 if result is None:
                     logger.warning(f"房间 {room_name} 查询失败")
                     continue
@@ -194,6 +211,7 @@ def main(path=None):
             # 并行发送通知
             if alert_rooms:
                 logger.info(f"{len(alert_rooms)}个房间需要通知")
+                logger.debug("[main] 待通知房间详情: %s", alert_rooms)
 
                 # 使用线程池并行发送
                 with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
@@ -201,7 +219,10 @@ def main(path=None):
                     for room_name, balance in alert_rooms:
                         # 查找该房间的配置
                         room_config = next((q for q in queries if q["room_name"] == room_name), None)
+                        logger.debug("[main] 匹配到房间配置: %s", room_config)
+
                         if not room_config:
+                            logger.warning(f"[main] 未找到房间 {room_name} 的配置，跳过通知")
                             continue
 
                         # 提交发送任务
@@ -217,6 +238,8 @@ def main(path=None):
                             future.result()
                         except Exception as e:
                             logger.exception("通知任务异常")
+            else:
+                logger.debug("[main] 没有需要通知的房间")
 
             # 处理检查间隔
             if check_interval <= 0:
