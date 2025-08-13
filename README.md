@@ -183,5 +183,5 @@ make -j$(nproc)
 如果使用手动编辑的配置文件，在启动脚本时应该添加参数以指定配置文件路径。
 
 ```bash
-python3 Energyfy.py ./config.json
+python3 Energyfy.py -c ./config.json
 ```
