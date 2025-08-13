@@ -29,7 +29,7 @@ def parse_args():
     )
     parser.add_argument(
         "-l", "--log-level",
-        help="日志等级（DEBUG/INFO/WARNING/ERROR/CRITICAL）",
+        help="日志等级（DEBUG/INFO/WARNING/ERROR/CRITICAL），默认为INFO",
         type=str.upper,  # 自动转大写
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
