@@ -76,7 +76,7 @@
 你可以使用`nohup`让脚本后台运行。
 
 ```bash
-nohup ./Energyfy > /dev/null 2>&1 &
+nohup ./Energyfy --no-log-to-console > /dev/null 2>&1 &
 # 使用tail查看运行日志
 tail -f logs/Energyfy.log
 ```
@@ -96,6 +96,17 @@ tail -f logs/Energyfy.log
 ### Windows中使用配置管理器，创建符号链接失败
 
 以管理员身份运行即可。
+
+## 可选选项
+
+- `-h` `--help` 显示帮助信息
+- `-c` `--config` 指定配置文件路径
+- `-v` `--version` 显示版本信息
+- `-l` `--log-level` 设置日志等级(DEBUG|INFO|WARNING|ERROR|CRITICAL)
+- `--no-log-to-console` 禁用控制台输出日志
+- `--no-log-to-file` 禁用文件输出日志
+- `-f` `--log-file` 指定日志文件路径
+- `-b` `--backup-count` 指定日志文件备份数量
 
 ## 使用源码
 
