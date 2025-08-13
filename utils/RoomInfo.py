@@ -18,7 +18,12 @@ class RoomInfo:
 
 
     def get_dynamic_js(self, session):
-        """从登录页面动态获取加密JS URL并下载内容"""
+        """
+        从登录页面动态获取加密JS代码
+        :param session: 已创建的 requests.Session 对象
+        :return: 加密JS代码字符串
+        :raises RuntimeError: 无法找到加密JS文件或请求失败时抛出
+        """
         try:
             login_page = session.get(self.LOGIN_URL)
             login_page.raise_for_status()
@@ -41,7 +46,12 @@ class RoomInfo:
 
 
     def create_js_context(self, js_code):
-        """创建JS执行环境"""
+        """
+        创建加密JS的执行环境
+        :param js_code: 从页面获取的加密JS代码
+        :return: execjs 编译后的执行上下文对象
+        :raises RuntimeError: JS 编译失败时抛出
+        """
         # 添加暴露给Python的辅助函数
         js_code += """
         // 暴露给Python调用的函数
@@ -59,7 +69,14 @@ class RoomInfo:
 
 
     def follow_redirects(self, session, start_url, max_redirects=10):
-        """跟随重定向链直到获得最终响应"""
+        """
+        手动跟随HTTP重定向链
+        :param session: requests.Session 对象
+        :param start_url: 起始URL
+        :param max_redirects: 最大重定向次数（默认10）
+        :return: (最终响应对象, 重定向历史列表)
+        :raises RuntimeError: 请求失败、缺少Location头或超过最大重定向次数时抛出
+        """
         current_url = start_url
         redirect_count = 0
         redirect_history = []
@@ -105,7 +122,11 @@ class RoomInfo:
 
 
     def login(self):
-        """执行登录流程并处理重定向链"""
+        """
+        执行登录流程并返回最终响应和会话信息
+        :return: (最终响应对象, cookies字典, 重定向历史列表)
+        :raises RuntimeError: 初始化环境失败、登录失败或请求异常时抛出
+        """
         session = requests.Session()
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
@@ -181,6 +202,12 @@ class RoomInfo:
             raise RuntimeError("登录请求失败") from e
 
     def get(self, queries):
+        """
+        根据宿舍ID查询电费信息
+        :param queries: 宿舍ID列表或可迭代对象
+        :return: [(宿舍ID字符串, 宿舍信息字典或None), ...]
+        :raises RuntimeError: 登录失败、请求失败或响应异常时抛出
+        """
         try:
             final_response, cookies, redirect_history = self.login()
 
