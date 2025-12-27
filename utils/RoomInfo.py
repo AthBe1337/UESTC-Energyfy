@@ -11,7 +11,7 @@ class RoomInfo:
         self.USERNAME = username
         self.PASSWORD = password
         self.BASE_URL = "https://idas.uestc.edu.cn"
-        self.EPORTAL_BASE_URL = "https://eportal.uestc.edu.cn"
+        self.EPORTAL_BASE_URL = "https://portal.uestc.edu.cn"
         self.LOGIN_URL = f"{self.BASE_URL}/authserver/login"
         self.TARGET_URL = f"{self.EPORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/index.do#/record"
         self.INFO_API = f"{self.EPORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/dormElecPrepaidMan/queryRoomInfo.do"
