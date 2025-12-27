@@ -125,6 +125,52 @@ _DEFAULT_SCHEMA = {
 }
 
 
+def generate_report_email(room_name, days, chart_cid="chart_image"):
+  """
+  生成带图表的统计报告 HTML
+  :param room_name: 房间名
+  :param days: 统计周期天数
+  :param chart_cid: 邮件中图片的 Content-ID
+  """
+  theme_color = "#3498db"
+
+  html_content = f"""
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>UESTC-Energyfy 电费统计报告</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #333; background-color: #f5f5f5;">
+    <div style="max-width: 700px; margin: 20px auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden;">
+        <div style="background-color: {theme_color}; padding: 25px; text-align: center;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px; font-weight: 500;">电费收支趋势报告</h1>
+        </div>
+
+        <div style="padding: 30px;">
+            <p style="font-size: 16px; margin-top: 0; line-height: 1.6;">
+                尊敬的用户：<br>
+                这是您的宿舍 <strong style="color: {theme_color};">{room_name}</strong> 在过去 <strong>{days}</strong> 天内的电费余额变化趋势图。
+            </p>
+
+            <div style="margin: 20px 0; text-align: center; border: 1px solid #eee; padding: 10px; border-radius: 4px;">
+                <img src="cid:{chart_cid}" alt="电费趋势图" style="max-width: 100%; height: auto; display: block; margin: 0 auto;">
+            </div>
+
+            <div style="background-color: #f9f9f9; padding: 15px; border-radius: 6px; font-size: 14px; color: #666;">
+                <p style="margin: 0;">💡 <strong>提示：</strong> 如果曲线下降过快，说明近期用电量激增，请注意节约用电。</p>
+            </div>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 20px; text-align: center; font-size: 13px; color: #999; border-top: 1px solid #eee;">
+            <p style="margin: 5px 0;">UESTC-Energyfy 自动统计服务 &copy; {datetime.datetime.now().year}</p>
+        </div>
+    </div>
+</body>
+</html>
+    """
+  return html_content
+
 def generate_html_email(roomname, balance, min_balance):
     # 主题色 - 科技蓝
     theme_color = "#3498db"
