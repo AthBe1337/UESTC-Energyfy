@@ -317,7 +317,7 @@ class StatisticsReporter(threading.Thread):
 
                             notification.send_email(
                                 recipients=recipients,
-                                subject=f"[{room}] 电费统计报告 - 余额{stats['end_bal']}元",
+                                subject=f"[{room}] 电费统计报告",
                                 text_content=text,
                                 html_content=html,
                                 images={cid: img_bytes}
