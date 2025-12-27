@@ -88,7 +88,10 @@ class StatisticsReporter(threading.Thread):
                 if os.path.exists(found_path) and found_path != default_font_path:
                     self.logger.info(f"统计图表选中字体文件: {found_path} (Family: {font_name})")
                     matplotlib.rcParams['font.family'] = 'sans-serif'
-                    matplotlib.rcParams['font.sans-serif'] = [font_name]
+                    matplotlib.rcParams['font.sans-serif'] = [
+                        font_name,
+                        'DejaVu Sans',
+                    ]
                     matplotlib.rcParams['axes.unicode_minus'] = False
 
                     return font_manager.FontProperties(fname=found_path)
