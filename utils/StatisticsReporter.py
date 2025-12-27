@@ -46,28 +46,28 @@ class StatisticsReporter(threading.Thread):
 
     def _init_font(self):
         """
-        初始化字体：遍历常见中文字体列表，检测系统是否安装
+        初始化字体：遍历常见中文字体列表，获取绝对路径并强制加载
         """
         # 常见中文字体优先级列表
         font_candidates = [
-            # --- Windows ---
-            'Microsoft YaHei',
-            'SimHei',
-            'SimSun',
             # --- Linux (Ubuntu/Debian/CentOS) ---
-            'WenQuanYi Micro Hei',
-            'WenQuanYi Zen Hei',
-            'Noto Sans CJK SC',
+            'WenQuanYi Micro Hei',  # 文泉驿微米黑 (WSL/Ubuntu 推荐)
+            'WenQuanYi Zen Hei',  # 文泉驿正黑
+            'Noto Sans CJK SC',  # Google Noto CJK
             'Noto Sans SC',
-            'Droid Sans Fallback',
+            'Droid Sans Fallback',  # 很多精简版 Linux 自带
+            # --- Windows ---
+            'Microsoft YaHei',  # 微软雅黑
+            'SimHei',  # 黑体
+            'SimSun',  # 宋体
             # --- MacOS ---
             'PingFang SC',
             'Hiragino Sans GB',
-            'Heiti TC',
         ]
 
         try:
-            default_font_path = font_manager.findfont(font_manager.FontProperties(family='sans-serif'))
+            default_prop = font_manager.FontProperties(family='sans-serif')
+            default_font_path = font_manager.findfont(default_prop)
         except:
             default_font_path = ""
 
@@ -76,14 +76,16 @@ class StatisticsReporter(threading.Thread):
                 prop = font_manager.FontProperties(family=font_name)
                 found_path = font_manager.findfont(prop)
 
-                if found_path and found_path != default_font_path:
-                    self.logger.info(f"统计图表将使用系统中文字体: {font_name}")
-                    return prop
+                if os.path.exists(found_path) and found_path != default_font_path:
+                    self.logger.info(f"统计图表选中字体文件: {found_path} (Family: {font_name})")
+
+                    return font_manager.FontProperties(fname=found_path)
             except:
                 continue
 
         self.logger.warning("==================================================")
-        self.logger.warning("未检测到中文字体，生成的统计图表中文将显示为方框！")
+        self.logger.warning("未检测到中文字体，统计图表中文将显示为方框！")
+        self.logger.warning(f"当前默认回退字体: {default_font_path}")
         self.logger.warning("请在服务器上安装中文字体，推荐命令如下：")
         self.logger.warning("  Ubuntu/Debian: sudo apt-get install fonts-wqy-microhei")
         self.logger.warning("  CentOS/RHEL:   sudo yum install wqy-microhei-fonts")
