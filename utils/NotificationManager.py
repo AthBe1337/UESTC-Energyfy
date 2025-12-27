@@ -1,6 +1,7 @@
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from email.mime.image import MIMEImage
 import requests
 import json
 from utils.Logger import get_logger
@@ -29,9 +30,9 @@ class NotificationManager:
         }
         self.logger.debug("[NotificationManager] 邮件配置: %s", self.email_config)
 
-    def send_email(self, recipients, subject, text_content=None, html_content=None):
+    def send_email(self, recipients, subject, text_content=None, html_content=None, images=None):
         """
-        发送电子邮件通知，支持纯文本和HTML格式
+        发送电子邮件通知，支持纯文本、HTML及内嵌图片
         :param recipients: 收件人邮箱(字符串或列表)
         :param subject: 邮件主题
         :param text_content: 纯文本格式的邮件内容
@@ -64,7 +65,15 @@ class NotificationManager:
         self.logger.debug("[NMngr.send_email] 收件人处理完成: %s", recipients)
 
         # 创建邮件对象
-        msg = MIMEMultipart('alternative')
+        # 如果有图片，根容器必须是 related；否则只需 alternative
+        if images:
+            msg = MIMEMultipart('related')
+            msg_alternative = MIMEMultipart('alternative')
+            msg.attach(msg_alternative)
+        else:
+            msg = MIMEMultipart('alternative')
+            msg_alternative = msg
+
         msg['Subject'] = subject
         msg['From'] = self.email_config['sender']
         msg['To'] = ', '.join(recipients)
@@ -73,12 +82,24 @@ class NotificationManager:
         if text_content:
             self.logger.debug("[NMngr.send_email] 添加纯文本内容 (%d 字符)", len(text_content))
             part1 = MIMEText(text_content, 'plain', 'utf-8')
-            msg.attach(part1)
+            msg_alternative.attach(part1)
 
         if html_content:
             self.logger.debug("[NMngr.send_email] 添加HTML内容 (%d 字符)", len(html_content))
             part2 = MIMEText(html_content, 'html', 'utf-8')
-            msg.attach(part2)
+            msg_alternative.attach(part2)
+
+        # 添加图片 (挂载到 related 根容器)
+        if images:
+            for cid, img_data in images.items():
+                try:
+                    img = MIMEImage(img_data)
+                    img.add_header('Content-ID', f'<{cid}>')  # 尖括号是必须的
+                    img.add_header('Content-Disposition', 'inline')
+                    msg.attach(img)
+                    self.logger.debug(f"[NMngr.send_email] 已附加图片 CID: {cid}")
+                except Exception as e:
+                    self.logger.warning(f"附加图片失败: {e}")
 
         try:
             self.logger.debug("[NMngr.send_email] 连接SMTP服务器: host=%s, port=%s, encryption=%s",
