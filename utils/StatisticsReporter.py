@@ -10,6 +10,12 @@ import logging
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import warnings
+warnings.filterwarnings(
+    "ignore",
+    message=r"Glyph .* missing from font\(s\) .*",
+    category=UserWarning
+)
 import matplotlib.dates as mdates
 from matplotlib import font_manager
 
@@ -74,10 +80,16 @@ class StatisticsReporter(threading.Thread):
         for font_name in font_candidates:
             try:
                 prop = font_manager.FontProperties(family=font_name)
-                found_path = font_manager.findfont(prop)
+                found_path = font_manager.findfont(
+                    prop,
+                    fallback_to_default=False
+                )
 
                 if os.path.exists(found_path) and found_path != default_font_path:
                     self.logger.info(f"统计图表选中字体文件: {found_path} (Family: {font_name})")
+                    matplotlib.rcParams['font.family'] = 'sans-serif'
+                    matplotlib.rcParams['font.sans-serif'] = [font_name]
+                    matplotlib.rcParams['axes.unicode_minus'] = False
 
                     return font_manager.FontProperties(fname=found_path)
             except:
@@ -170,9 +182,6 @@ class StatisticsReporter(threading.Thread):
         dates = [x[0] for x in data]
         values = [x[1] for x in data]
         plt.figure(figsize=(10, 5), dpi=100)
-        # 中文字体兜底
-        plt.rcParams['font.sans-serif'] = ['SimHei', 'Microsoft YaHei', 'Arial Unicode MS', 'sans-serif']
-        plt.rcParams['axes.unicode_minus'] = False
 
         plt.plot(dates, values, label='余额', color='#3498db', linewidth=2, marker='.', markersize=8)
         plt.fill_between(dates, values, alpha=0.1, color='#3498db')
