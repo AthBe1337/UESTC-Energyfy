@@ -125,6 +125,83 @@ _DEFAULT_SCHEMA = {
 }
 
 
+def generate_report_email(room_name, days, cid, stats):
+  """
+  生成带图表和详细统计数据的报告 HTML
+  :param room_name: 房间名
+  :param days: 统计周期天数
+  :param cid: 图片 Content-ID
+  :param stats: 统计数据字典 {'start_bal', 'end_bal', 'cost', 'daily_avg', 'days_left'}
+  """
+  theme_color = "#3498db"
+
+  # 根据日均消费动态改变颜色 (如果每天超过 5元，标红)
+  try:
+    avg_val = float(stats['daily_avg'])
+    avg_color = "#e74c3c" if avg_val > 5.0 else "#27ae60"
+  except:
+    avg_color = "#333"
+
+  html_content = f"""
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>电费统计报告</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f5f5f5;">
+    <div style="max-width: 650px; margin: 20px auto; background-color: #fff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden;">
+
+        <div style="background-color: {theme_color}; padding: 25px; text-align: center;">
+            <h1 style="color: #fff; margin: 0; font-size: 22px; font-weight: 600;">⚡ 宿舍 {room_name} 用电报告</h1>
+            <p style="color: rgba(255,255,255,0.9); margin: 5px 0 0; font-size: 14px;">统计周期：近 {days} 天</p>
+        </div>
+
+        <div style="padding: 30px;">
+
+            <div style="display: flex; flex-wrap: wrap; margin-bottom: 25px; gap: 15px;">
+                <div style="flex: 1; min-width: 120px; background: #f8f9fa; border-radius: 6px; padding: 15px; text-align: center; border: 1px solid #eee;">
+                    <div style="font-size: 12px; color: #7f8c8d; margin-bottom: 5px;">本期总支出</div>
+                    <div style="font-size: 20px; font-weight: bold; color: #2c3e50;">{stats['cost']} <span style="font-size: 12px;">元</span></div>
+                </div>
+
+                <div style="flex: 1; min-width: 120px; background: #f8f9fa; border-radius: 6px; padding: 15px; text-align: center; border: 1px solid #eee;">
+                    <div style="font-size: 12px; color: #7f8c8d; margin-bottom: 5px;">日均消费</div>
+                    <div style="font-size: 20px; font-weight: bold; color: {avg_color};">{stats['daily_avg']} <span style="font-size: 12px;">元</span></div>
+                </div>
+
+                <div style="flex: 1; min-width: 120px; background: #f8f9fa; border-radius: 6px; padding: 15px; text-align: center; border: 1px solid #eee;">
+                    <div style="font-size: 12px; color: #7f8c8d; margin-bottom: 5px;">预计可用</div>
+                    <div style="font-size: 20px; font-weight: bold; color: #2c3e50;">{stats['days_left']} <span style="font-size: 12px;">天</span></div>
+                </div>
+            </div>
+
+            <div style="font-size: 14px; color: #555; margin-bottom: 25px; text-align: center; border-bottom: 1px dashed #eee; padding-bottom: 15px;">
+                <span>期初余额: <strong>{stats['start_bal']}</strong> 元</span>
+                <span style="margin: 0 10px; color: #ccc;">|</span>
+                <span>当前余额: <strong>{stats['end_bal']}</strong> 元</span>
+            </div>
+
+            <div style="margin: 0 0 20px; text-align: center; border: 1px solid #eee; padding: 5px; border-radius: 4px;">
+                <img src="cid:{cid}" alt="电费趋势图" style="max-width: 100%; height: auto; display: block;">
+            </div>
+
+            <div style="background-color: #fff8e1; border-left: 4px solid #ffc107; padding: 12px; border-radius: 0 4px 4px 0; font-size: 13px; color: #8a6d3b;">
+                <strong>💡 智能分析：</strong> 
+                按当前日均消费计算，您的余额预计还能使用约 <strong>{stats['days_left']}</strong> 天。
+                {"请注意及时充值！" if stats['days_left'] != "∞" and int(stats['days_left']) < 5 else ""}
+            </div>
+        </div>
+
+        <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee;">
+            <p style="margin: 0;">UESTC-Energyfy &copy; {datetime.datetime.now().year}</p>
+        </div>
+    </div>
+</body>
+</html>
+    """
+  return html_content
+
 def generate_html_email(roomname, balance, min_balance):
     # 主题色 - 科技蓝
     theme_color = "#3498db"

@@ -2,6 +2,28 @@
 
 查询电子科技大学宿舍的电费余额，在低于阈值时发送邮件通知和*Server酱³*推送。
 
+## v1.2.2 新增功能
+
+现在可以在指定的周期后统计电费消耗趋势，并发送图表到收件人邮箱。示例如下。
+
+<img src="https://cloud.athbe.cn/f/WdEfm/I5KHP%29HHHICXY9QQQ6@%254%5BH.png" width="400" alt="用电报告示例" />
+
+### 兼容性
+完全兼容旧版本配置文件，由于新增了绘图功能，脚本资源开销会稍微增加。如果服务器资源过于紧张，可以选择不升级。
+
+### 开启方式
+如果你使用linux系统，首先保证安装中文字体
+```bash
+# Debian/Ubuntu/Kali
+sudo apt-get install -y fonts-wqy-microhei
+# ArchLinux
+sudo pacman -S wqy-microhei
+# Fedora/CentOS/RHEL
+sudo yum install -y wqy-microhei
+```
+启动时添加参数`--report-interval n`
+其中n为统计周期，单位为天，默认为0，代表不统计。
+
 ---
 
 ## 目录
@@ -108,6 +130,7 @@ tail -f logs/Energyfy.log
 - `--no-log-to-file` 禁用文件输出日志
 - `-f` `--log-file` 指定日志文件路径，默认为`logs/Energyfy.log`
 - `-b` `--backup-count` 指定日志文件备份数量，默认为`7`
+- `--report-interval` 统计电费消耗的周期，单位为天，默认为0，代表不统计。
 
 **示例用法**
 ```bash
