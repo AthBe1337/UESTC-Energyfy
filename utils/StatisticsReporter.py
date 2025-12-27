@@ -6,10 +6,12 @@ import io
 import json
 import datetime
 import matplotlib
+import logging
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
+from matplotlib import font_manager
 
 from utils import Defaults
 from utils.Logger import get_logger
@@ -30,6 +32,7 @@ class StatisticsReporter(threading.Thread):
         self.interval = interval_days
         self.daemon = True
         self.logger = get_logger()
+        logging.getLogger('matplotlib.font_manager').setLevel(logging.ERROR)
 
         # 状态文件保存位置 (与日志同目录)
         log_dir = os.path.dirname(log_file_path)
@@ -39,6 +42,56 @@ class StatisticsReporter(threading.Thread):
             except:
                 pass
         self.state_file = os.path.join(log_dir if log_dir else '.', "stats_state.json")
+        self.font_prop = self._init_font()
+
+    def _init_font(self):
+        """
+        初始化字体：遍历常见中文字体列表，检测系统是否安装
+        """
+        # 常见中文字体优先级列表
+        font_candidates = [
+            # --- Windows ---
+            'Microsoft YaHei',
+            'SimHei',
+            'SimSun',
+            # --- Linux (Ubuntu/Debian/CentOS) ---
+            'WenQuanYi Micro Hei',
+            'WenQuanYi Zen Hei',
+            'Noto Sans CJK SC',
+            'Noto Sans SC',
+            'Droid Sans Fallback',
+            # --- MacOS ---
+            'PingFang SC',
+            'Hiragino Sans GB',
+            'Heiti TC',
+        ]
+
+        try:
+            default_font_path = font_manager.findfont(font_manager.FontProperties(family='sans-serif'))
+        except:
+            default_font_path = ""
+
+        for font_name in font_candidates:
+            try:
+                prop = font_manager.FontProperties(family=font_name)
+                found_path = font_manager.findfont(prop)
+
+                if found_path and found_path != default_font_path:
+                    self.logger.info(f"统计图表将使用系统中文字体: {font_name}")
+                    return prop
+            except:
+                continue
+
+        self.logger.warning("==================================================")
+        self.logger.warning("未检测到中文字体，生成的统计图表中文将显示为方框！")
+        self.logger.warning("请在服务器上安装中文字体，推荐命令如下：")
+        self.logger.warning("  Ubuntu/Debian: sudo apt-get install fonts-wqy-microhei")
+        self.logger.warning("  CentOS/RHEL:   sudo yum install wqy-microhei-fonts")
+        self.logger.warning("  Alpine Linux:  apk add font-wqy-zenhei")
+        self.logger.warning("==================================================")
+
+        # 返回默认 fallback
+        return font_manager.FontProperties(family='sans-serif')
 
     def _load_state(self):
         """读取上次统计时间"""
