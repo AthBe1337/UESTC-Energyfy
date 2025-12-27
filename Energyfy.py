@@ -9,6 +9,7 @@ from utils.Config import ConfigReader
 from utils.RoomInfo import RoomInfo
 from utils.NotificationManager import NotificationManager
 from utils.Logger import get_logger
+from utils.StatisticsReporter import StatisticsReporter
 
 
 def parse_args():
@@ -87,6 +88,12 @@ def parse_args():
         type=int,
         default=7
     )
+    parser.add_argument(
+        "--report-interval",
+        help="统计图表报告生成间隔（天），默认为0（关闭）",
+        type=int,
+        default=0
+    )
 
     return parser.parse_args()
 
@@ -150,6 +157,18 @@ def main(path=None):
             logger.exception("配置文件验证失败")
             logger.info("30秒后重试配置文件验证...")
             time.sleep(30)
+
+    if args.report_interval > 0:
+        # 简单校验，防止间隔过大导致无法从日志恢复数据
+        if args.report_interval > args.backup_count:
+            logger.warning(f"统计间隔 ({args.report_interval}天) 大于日志备份数 ({args.backup_count})，图表可能不完整")
+
+        reporter = StatisticsReporter(
+            config_reader=config_reader,
+            log_file_path=args.log_file,
+            interval_days=args.report_interval
+        )
+        reporter.start()
 
     # 主循环
     while True:
