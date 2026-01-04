@@ -158,7 +158,6 @@ class StatisticsReporter(threading.Thread):
         start_time = now - datetime.timedelta(days=days)
         safe_room_name = str(room_name)
 
-        # 修正后的正则，移除行首锚点，放宽匹配
         pattern = re.compile(
             r'(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}).*?房间\s+' +
             re.escape(safe_room_name) +
@@ -213,22 +212,28 @@ class StatisticsReporter(threading.Thread):
         start_time, start_bal = data[0]
         end_time, end_bal = data[-1]
 
-        # 2. 计算消耗 (注意：如果期间充值了，直接减可能会出现负数，这里简单处理为净支出)
+        # 2. 计算净消耗 (Net Cost)
         net_cost = start_bal - end_bal
 
-        # 3. 计算时间跨度 (天)
+        # 3. 计算真实累计消耗 (Gross Consumption)
+        gross_consumption = 0.0
+        for i in range(len(data) - 1):
+            curr_bal = data[i][1]
+            next_bal = data[i + 1][1]
+            diff = curr_bal - next_bal
+            if diff > 0:
+                gross_consumption += diff
+
+        # 4. 计算时间跨度 (天)
         time_span_days = (end_time - start_time).total_seconds() / (24 * 3600)
-        if time_span_days < 0.1:
-            time_span_days = 0.1  # 防止除以零
+        # 防止时间过短除零
+        if time_span_days < 0.001:
+            time_span_days = 0.001
 
-        # 4. 计算日均
-        # 如果 net_cost 是负数（充值了），日均消耗就没有意义了，记为 0
-        if net_cost > 0:
-            daily_avg = net_cost / time_span_days
-        else:
-            daily_avg = 0.0
+        # 5. 计算日均 (真实消耗 / 时间)
+        daily_avg = gross_consumption / time_span_days
 
-        # 5. 预测剩余天数
+        # 6. 预测剩余天数 (当前余额 / 真实日均)
         days_left = "∞"
         if daily_avg > 0 and end_bal > 0:
             left_val = end_bal / daily_avg
