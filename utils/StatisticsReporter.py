@@ -274,7 +274,7 @@ class StatisticsReporter(threading.Thread):
         return {
             "start_bal": f"{start_bal:.2f}",
             "end_bal": f"{end_bal:.2f}",
-            "cost": f"{net_cost:.2f}" if net_cost > 0 else f"+{abs(net_cost):.2f} (充值)",
+            "cost": f"{net_cost:.2f}" if net_cost > 0 else f"+{abs(net_cost):.2f}",
             "daily_avg": f"{daily_avg:.2f}",
             "days_left": days_left
         }
