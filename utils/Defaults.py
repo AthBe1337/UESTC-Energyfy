@@ -1,4 +1,5 @@
 import datetime
+import socket
 
 # 内嵌的默认 Schema
 _DEFAULT_SCHEMA = {
@@ -125,6 +126,13 @@ _DEFAULT_SCHEMA = {
 }
 
 
+def get_hostname():
+  """辅助函数：安全获取主机名"""
+  try:
+    return socket.gethostname()
+  except:
+    return "Unknown Server"
+
 def generate_report_email(room_name, days, cid, stats):
   """
   生成带图表和详细统计数据的报告 HTML
@@ -134,6 +142,8 @@ def generate_report_email(room_name, days, cid, stats):
   :param stats: 统计数据字典 {'start_bal', 'end_bal', 'cost', 'daily_avg', 'days_left'}
   """
   theme_color = "#3498db"
+
+  current_host = get_hostname()
 
   # 根据日均消费动态改变颜色 (如果每天超过 5元，标红)
   try:
@@ -195,6 +205,7 @@ def generate_report_email(room_name, days, cid, stats):
 
         <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee;">
             <p style="margin: 0;">UESTC-Energyfy &copy; {datetime.datetime.now().year}</p>
+            <p style="margin: 5px 0 0; font-size: 11px; color: #ccc;">Server: {current_host}</p>
         </div>
     </div>
 </body>
@@ -207,6 +218,8 @@ def generate_html_email(roomname, balance, min_balance):
     theme_color = "#3498db"
     # 警告色 - 红色
     alert_color = "#e74c3c"
+
+    current_host = get_hostname()
 
     html_content = f"""
 <!DOCTYPE html>
@@ -261,17 +274,13 @@ def generate_html_email(roomname, balance, min_balance):
                     立即充值
                 </a>
             </div>
-
-            <!-- 联系信息 -->
-            <p style="font-size: 14px; color: #777; text-align: center; margin: 20px 0 0;">
-                如有疑问，别有疑问。
-            </p>
         </div>
 
         <!-- 页脚 -->
         <div style="background-color: #f5f5f5; padding: 20px; text-align: center; font-size: 13px; color: #999; border-top: 1px solid #eee;">
-            <p style="margin: 5px 0;">本邮件为系统自动发送，请勿直接回复</p>
             <p style="margin: 5px 0;">UESTC-Energyfy &copy; {datetime.datetime.now().year}</p>
+            <p style="margin: 5px 0 0; font-size: 11px; color: #ccc;">Server: {current_host}</p>
+        </div>
         </div>
     </div>
 </body>
@@ -280,6 +289,7 @@ def generate_html_email(roomname, balance, min_balance):
     return html_content
 
 def generate_text_email(roomname, balance, min_balance):
+    current_host = get_hostname()
     text_content = f"""
 UESTC-Energyfy 余额告警通知
 ========================================
@@ -303,11 +313,13 @@ UESTC-Energyfy 余额告警通知
 ========================================
 本邮件为系统自动发送，请勿直接回复
 UESTC-Energyfy © {datetime.datetime.now().year}
+Server: {current_host}
 ========================================
 """
     return text_content.strip()
 
 def generate_markdown_notification(roomname, balance, min_balance):
+    current_host = get_hostname()
     markdown_content = f"""
 # ⚡ UESTC-Energyfy 余额告警通知
 
@@ -335,6 +347,8 @@ def generate_markdown_notification(roomname, balance, min_balance):
 
 ---
 
-UESTC-Energyfy © {datetime.datetime.now().year}
+UESTC-Energyfy © {datetime.datetime.now().year} 
+
+Server: {current_host}
 """
     return markdown_content.strip()
