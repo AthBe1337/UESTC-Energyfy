@@ -7,6 +7,7 @@ import json
 import datetime
 import matplotlib
 import logging
+import platform
 
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -52,31 +53,53 @@ class StatisticsReporter(threading.Thread):
 
     def _init_font(self):
         """
-        初始化字体：遍历常见中文字体列表，获取绝对路径并强制加载
+        初始化字体：根据当前操作系统调整优先级，遍历常见中文字体列表，获取绝对路径并强制加载
         """
-        # 常见中文字体优先级列表
-        font_candidates = [
-            # --- Linux (Ubuntu/Debian/CentOS) ---
-            'WenQuanYi Micro Hei',  # 文泉驿微米黑 (WSL/Ubuntu 推荐)
-            'WenQuanYi Zen Hei',  # 文泉驿正黑
-            'Noto Sans CJK SC',  # Google Noto CJK
-            'Noto Sans SC',
-            'Droid Sans Fallback',  # 很多精简版 Linux 自带
-            # --- Windows ---
+        # 1. 定义不同系统的推荐字体列表
+        # Windows 优先
+        windows_fonts = [
             'Microsoft YaHei',  # 微软雅黑
             'SimHei',  # 黑体
             'SimSun',  # 宋体
-            # --- MacOS ---
-            'PingFang SC',
-            'Hiragino Sans GB',
         ]
 
+        # Linux 优先 (Ubuntu/Debian/CentOS/Alpine)
+        linux_fonts = [
+            'WenQuanYi Micro Hei',  # 文泉驿微米黑
+            'WenQuanYi Zen Hei',  # 文泉驿正黑
+            'Noto Sans CJK SC',  # Google Noto CJK
+            'Noto Sans SC',
+            'Droid Sans Fallback',
+        ]
+
+        # MacOS 优先
+        mac_fonts = [
+            'PingFang SC',  # 苹方
+            'Hiragino Sans GB',  # 冬青黑体
+            'Heiti SC',  # 黑体-简
+        ]
+
+        # 2. 根据操作系统构建优先级列表
+        sys_platform = platform.system()
+
+        if sys_platform == 'Windows':
+            # Windows: Win字体 > Linux字体 > Mac字体
+            font_candidates = windows_fonts + linux_fonts + mac_fonts
+        elif sys_platform == 'Darwin':
+            # MacOS: Mac字体 > Win字体 > Linux字体
+            font_candidates = mac_fonts + windows_fonts + linux_fonts
+        else:
+            # Linux/Other: Linux字体 > Win字体 > Mac字体
+            font_candidates = linux_fonts + windows_fonts + mac_fonts
+
+        # 3. 获取默认回退字体路径
         try:
             default_prop = font_manager.FontProperties(family='sans-serif')
             default_font_path = font_manager.findfont(default_prop)
         except:
             default_font_path = ""
 
+        # 4. 遍历查找
         for font_name in font_candidates:
             try:
                 prop = font_manager.FontProperties(family=font_name)
@@ -86,25 +109,33 @@ class StatisticsReporter(threading.Thread):
                 )
 
                 if os.path.exists(found_path) and found_path != default_font_path:
-                    self.logger.info(f"统计图表选中字体文件: {found_path} (Family: {font_name})")
+                    self.logger.info(f"[{sys_platform}] 统计图表选中字体: {font_name} (路径: {found_path})")
+
+                    # 设置 matplotlib 全局参数
                     matplotlib.rcParams['font.family'] = 'sans-serif'
+                    # 将选中的字体放在第一位，同时保留 DejaVu Sans 处理英文字符
                     matplotlib.rcParams['font.sans-serif'] = [
                         font_name,
                         'DejaVu Sans',
+                        'Arial',
+                        'sans-serif'
                     ]
-                    matplotlib.rcParams['axes.unicode_minus'] = False
+                    matplotlib.rcParams['axes.unicode_minus'] = False  # 解决负号显示为方块的问题
 
                     return font_manager.FontProperties(fname=found_path)
             except:
                 continue
 
         self.logger.warning("==================================================")
-        self.logger.warning("未检测到中文字体，统计图表中文将显示为方框！")
+        self.logger.warning(f"系统 ({sys_platform}) 未检测到中文字体，统计图表中文将显示为方框！")
         self.logger.warning(f"当前默认回退字体: {default_font_path}")
-        self.logger.warning("请在服务器上安装中文字体，推荐命令如下：")
-        self.logger.warning("  Ubuntu/Debian: sudo apt-get install fonts-wqy-microhei")
-        self.logger.warning("  CentOS/RHEL:   sudo yum install wqy-microhei-fonts")
-        self.logger.warning("  Alpine Linux:  apk add font-wqy-zenhei")
+
+        if sys_platform == 'Linux':
+            self.logger.warning("请在服务器上安装中文字体，推荐命令如下：")
+            self.logger.warning("  Ubuntu/Debian: sudo apt-get install fonts-wqy-microhei")
+            self.logger.warning("  CentOS/RHEL:   sudo yum install wqy-microhei-fonts")
+            self.logger.warning("  Alpine Linux:  apk add font-wqy-zenhei")
+
         self.logger.warning("==================================================")
 
         # 返回默认 fallback
@@ -158,7 +189,6 @@ class StatisticsReporter(threading.Thread):
         start_time = now - datetime.timedelta(days=days)
         safe_room_name = str(room_name)
 
-        # 修正后的正则，移除行首锚点，放宽匹配
         pattern = re.compile(
             r'(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}).*?房间\s+' +
             re.escape(safe_room_name) +
@@ -213,22 +243,28 @@ class StatisticsReporter(threading.Thread):
         start_time, start_bal = data[0]
         end_time, end_bal = data[-1]
 
-        # 2. 计算消耗 (注意：如果期间充值了，直接减可能会出现负数，这里简单处理为净支出)
+        # 2. 计算净消耗 (Net Cost)
         net_cost = start_bal - end_bal
 
-        # 3. 计算时间跨度 (天)
+        # 3. 计算真实累计消耗 (Gross Consumption)
+        gross_consumption = 0.0
+        for i in range(len(data) - 1):
+            curr_bal = data[i][1]
+            next_bal = data[i + 1][1]
+            diff = curr_bal - next_bal
+            if diff > 0:
+                gross_consumption += diff
+
+        # 4. 计算时间跨度 (天)
         time_span_days = (end_time - start_time).total_seconds() / (24 * 3600)
-        if time_span_days < 0.1:
-            time_span_days = 0.1  # 防止除以零
+        # 防止时间过短除零
+        if time_span_days < 0.001:
+            time_span_days = 0.001
 
-        # 4. 计算日均
-        # 如果 net_cost 是负数（充值了），日均消耗就没有意义了，记为 0
-        if net_cost > 0:
-            daily_avg = net_cost / time_span_days
-        else:
-            daily_avg = 0.0
+        # 5. 计算日均 (真实消耗 / 时间)
+        daily_avg = gross_consumption / time_span_days
 
-        # 5. 预测剩余天数
+        # 6. 预测剩余天数 (当前余额 / 真实日均)
         days_left = "∞"
         if daily_avg > 0 and end_bal > 0:
             left_val = end_bal / daily_avg
@@ -238,7 +274,7 @@ class StatisticsReporter(threading.Thread):
         return {
             "start_bal": f"{start_bal:.2f}",
             "end_bal": f"{end_bal:.2f}",
-            "cost": f"{net_cost:.2f}" if net_cost > 0 else f"+{abs(net_cost):.2f} (充值)",
+            "cost": f"{net_cost:.2f}" if net_cost > 0 else f"+{abs(net_cost):.2f}",
             "daily_avg": f"{daily_avg:.2f}",
             "days_left": days_left
         }
