@@ -161,7 +161,7 @@ def generate_report_email(room_name, days, cid, stats):
 
             <div style="display: flex; flex-wrap: wrap; margin-bottom: 25px; gap: 15px;">
                 <div style="flex: 1; min-width: 120px; background: #f8f9fa; border-radius: 6px; padding: 15px; text-align: center; border: 1px solid #eee;">
-                    <div style="font-size: 12px; color: #7f8c8d; margin-bottom: 5px;">本期总支出</div>
+                    <div style="font-size: 12px; color: #7f8c8d; margin-bottom: 5px;">本期净支出</div>
                     <div style="font-size: 20px; font-weight: bold; color: #2c3e50;">{stats['cost']} <span style="font-size: 12px;">元</span></div>
                 </div>
 
