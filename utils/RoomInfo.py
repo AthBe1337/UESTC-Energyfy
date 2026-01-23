@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import re
 import json
 from utils.Logger import get_logger
+from urllib.parse import urlparse, parse_qs, urlencode, urljoin
 
 class RoomInfo:
 
@@ -11,10 +12,10 @@ class RoomInfo:
         self.USERNAME = username
         self.PASSWORD = password
         self.BASE_URL = "https://idas.uestc.edu.cn"
-        self.EPORTAL_BASE_URL = "https://portal.uestc.edu.cn"
+        self.PORTAL_BASE_URL = "https://portal.uestc.edu.cn"
         self.LOGIN_URL = f"{self.BASE_URL}/authserver/login"
-        self.TARGET_URL = f"{self.EPORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/index.do#/record"
-        self.INFO_API = f"{self.EPORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/dormElecPrepaidMan/queryRoomInfo.do"
+        self.TARGET_URL = f"{self.PORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/index.do#/record"
+        self.INFO_API = f"{self.PORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/dormElecPrepaidMan/queryRoomInfo.do"
         self.logger = get_logger()
 
         self.logger.debug("[RoomInfo] 初始化 -> 用户名: %s", username)
@@ -199,7 +200,7 @@ class RoomInfo:
 
         try:
             # 提交登录请求（禁用重定向）
-            login_response = session.post(self.LOGIN_URL, data=payload, allow_redirects=False)
+            login_response = session.post(login_page.url, data=payload, allow_redirects=False)
             self.logger.debug("[RoomInfo.login] 登录响应状态码: %s", login_response.status_code)
             login_response.raise_for_status()
 
