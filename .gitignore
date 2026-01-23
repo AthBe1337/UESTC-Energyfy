@@ -7,3 +7,6 @@ build
 dist
 logs
 /Energyfy.spec
+.venv/
+__pycache__/
+**/__pycache__/
