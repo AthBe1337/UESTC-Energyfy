@@ -4,11 +4,20 @@ from email.mime.text import MIMEText
 from email.mime.image import MIMEImage
 import requests
 import json
-from utils.Logger import get_logger
+import logging
+# 尝试导入项目的日志模块，如果失败则使用禁用日志的版本
+try:
+    from utils.Logger import get_logger
+except ImportError:
+    # 当被其他项目调用时，使用 NullHandler 禁用日志输出
+    def get_logger():
+        logger = logging.getLogger("RoomInfo")
+        logger.addHandler(logging.NullHandler())
+        return logger
 
 class NotificationManager:
     def __init__(self, email_host=None, email_port=None, encryption='none',
-                 email_username=None, email_password=None, email_sender=None):
+                 email_username=None, email_password=None, email_sender=None, logger=None):
         """
         初始化通知管理器
         :param email_host: SMTP服务器地址
@@ -18,7 +27,7 @@ class NotificationManager:
         :param email_password: SMTP密码
         :param email_sender: 发件人邮箱
         """
-        self.logger = get_logger()
+        self.logger = logger if logger is not None else get_logger()
         self.logger.debug("[NotificationManager] 初始化通知管理器")
         self.email_config = {
             'host': email_host,
