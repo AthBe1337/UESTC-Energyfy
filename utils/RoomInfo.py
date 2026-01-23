@@ -4,7 +4,6 @@ from bs4 import BeautifulSoup
 import re
 import json
 from utils.Logger import get_logger
-from urllib.parse import urlparse, parse_qs, urlencode, urljoin
 
 class RoomInfo:
 
@@ -18,7 +17,7 @@ class RoomInfo:
         self.INFO_API = f"{self.PORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/dormElecPrepaidMan/queryRoomInfo.do"
         self.logger = get_logger()
 
-        self.logger.debug("[RoomInfo] 初始化 -> 用户名: %s", username)
+        self.logger.debug("[RoomInfo] 初始化 -> 用户名: %s", self.USERNAME)
 
     def get_dynamic_js(self, session):
         """

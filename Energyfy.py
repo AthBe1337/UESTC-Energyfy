@@ -185,8 +185,13 @@ def main(path=None):
                 logger.info(line)
 
             # 读取配置
-            username = config_reader.get("username")
-            password = config_reader.get("password")
+            if os.getenv("UESTC_USERNAME") and os.getenv("UESTC_PASSWORD"):
+                logger.info("检测到环境变量中的用户名和密码，将优先使用环境变量进行登录")
+                username = os.getenv("UESTC_USERNAME")
+                password = os.getenv("UESTC_PASSWORD")
+            else:
+                username = config_reader.get("username")
+                password = config_reader.get("password")
             check_interval = config_reader.get("check_interval")
             alert_balance = config_reader.get("alert_balance")
             smtp_config = config_reader.get("smtp")
