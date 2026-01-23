@@ -11,7 +11,7 @@ try:
 except ImportError:
     # 当被其他项目调用时，使用 NullHandler 禁用日志输出
     def get_logger():
-        logger = logging.getLogger("RoomInfo")
+        logger = logging.getLogger("NotificationManager")
         logger.addHandler(logging.NullHandler())
         return logger
 
