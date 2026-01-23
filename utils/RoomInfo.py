@@ -3,11 +3,28 @@ import execjs
 from bs4 import BeautifulSoup
 import re
 import json
-from utils.Logger import get_logger
+import logging
+
+# 尝试导入项目的日志模块，如果失败则使用禁用日志的版本
+try:
+    from utils.Logger import get_logger
+except ImportError:
+    # 当被其他项目调用时，使用 NullHandler 禁用日志输出
+    def get_logger():
+        logger = logging.getLogger("RoomInfo")
+        logger.addHandler(logging.NullHandler())
+        return logger
 
 class RoomInfo:
 
-    def __init__(self, username, password):
+    def __init__(self, username, password, logger=None):
+        """
+        初始化 RoomInfo 对象
+        
+        :param username: 用户名
+        :param password: 密码
+        :param logger: 可选的自定义日志器，如果为None则使用默认日志器
+        """
         self.USERNAME = username
         self.PASSWORD = password
         self.BASE_URL = "https://idas.uestc.edu.cn"
@@ -15,7 +32,7 @@ class RoomInfo:
         self.LOGIN_URL = f"{self.BASE_URL}/authserver/login"
         self.TARGET_URL = f"{self.PORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/index.do#/record"
         self.INFO_API = f"{self.PORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/dormElecPrepaidMan/queryRoomInfo.do"
-        self.logger = get_logger()
+        self.logger = logger if logger is not None else get_logger()
 
         self.logger.debug("[RoomInfo] 初始化 -> 用户名: %s", self.USERNAME)
 
