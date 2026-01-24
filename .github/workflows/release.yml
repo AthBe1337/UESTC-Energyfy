@@ -24,7 +24,8 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          get-content requirements.txt | %{$_ -replace "==","=>"} | set-content requirements.txt
+          (Get-Content requirements.txt) | %{$_ -replace "==",">="} | Set-Content requirements.txt
+          
           pip install -r requirements.txt
           pip install pyinstaller
 
