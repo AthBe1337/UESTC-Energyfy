@@ -117,22 +117,24 @@ jobs:
           submodules: recursive
 
       - name: Build in QEMU
-        uses: uraimo/run-on-arch-action@v2
+        uses: uraimo/run-on-arch-action@v3
         id: build
         with:
           arch: aarch64
-          distro: ubuntu20.04
+          distro: ubuntu24.04
           setup: |
             mkdir -p "${PWD}/artifacts"
           dockerRunArgs: |
             --volume "${PWD}/artifacts:/artifacts"
           install: |
             apt-get update
-            apt-get install -y python3 python3-pip python3-dev cmake build-essential git
+            apt-get install -y python3 python3-pip python3-dev cmake build-essential git python3-venv
           run: |
             VERSION=${GITHUB_REF#refs/tags/}
             sed -i 's/[=<>]=.*//g' requirements.txt
-            
+
+            python3 -m venv .venv
+            source .venv/bin/activate
             pip3 install -r requirements.txt
             pip3 install pyinstaller
             
