@@ -1,0 +1,127 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - '*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Build Energyfy (PyInstaller)
+        run: |
+          pyinstaller -F Energyfy.py
+
+      - name: Build ConfigManager (CMake)
+        run: |
+          cmake -S external/ConfigManager -B build_cm -DCMAKE_BUILD_TYPE=Release
+          cmake --build build_cm --config Release
+
+      - name: Prepare Package
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          
+          mkdir release_dist
+          cp dist/Energyfy.exe release_dist/
+          cp build_cm/Release/ConfigManager.exe release_dist/
+          cp schema.json release_dist/
+
+      - name: Create Zip Archive
+        shell: pwsh
+        run: |
+          $Version = $env:VERSION
+          $ZipName = "Energyfy_${Version}_windows_amd64.zip"
+          Compress-Archive -Path release_dist/* -DestinationPath $ZipName
+          echo "ASSET_PATH=$ZipName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ${{ env.ASSET_PATH }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            distro: ubuntu20.04
+            suffix: linux_amd64
+          - arch: aarch64
+            distro: ubuntu20.04
+            suffix: linux_arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build and Package in Docker
+        uses: uraimo/run-on-arch-action@v2
+        id: build
+        with:
+          arch: ${{ matrix.arch }}
+          distro: ${{ matrix.distro }}
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          
+          setup: |
+            mkdir -p "${PWD}/artifacts"
+          dockerRunArgs: |
+            --volume "${PWD}/artifacts:/artifacts"
+            
+          install: |
+            apt-get update
+            apt-get install -y python3 python3-pip python3-dev cmake build-essential git
+            
+          run: |
+            VERSION=${GITHUB_REF#refs/tags/}
+            
+            pip3 install -r requirements.txt
+            pip3 install pyinstaller
+            
+            pyinstaller -F Energyfy.py
+            
+            cmake -S external/ConfigManager -B build_cm -DCMAKE_BUILD_TYPE=Release
+            cmake --build build_cm --parallel
+            
+            mkdir -p temp_dist
+            cp dist/Energyfy temp_dist/
+            cp build_cm/ConfigManager temp_dist/
+            cp schema.json temp_dist/
+            
+            TAR_NAME="Energyfy_${VERSION}_${{ matrix.suffix }}.tar.gz"
+            cd temp_dist
+            tar -czvf /artifacts/${TAR_NAME} *
+            
+            echo "::set-output name=artifact_name::${TAR_NAME}"
+
+      - name: Upload Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: artifacts/${{ steps.build.outputs.artifact_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
