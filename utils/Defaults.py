@@ -133,17 +133,18 @@ def get_hostname():
   except:
     return "Unknown Server"
 
-def generate_report_email(room_name, days, cid, stats):
+def generate_report_email(room_name, days, cid, stats, hostname=True):
   """
   生成带图表和详细统计数据的报告 HTML
   :param room_name: 房间名
   :param days: 统计周期天数
   :param cid: 图片 Content-ID
   :param stats: 统计数据字典 {'start_bal', 'end_bal', 'cost', 'daily_avg', 'days_left'}
+  :param hostname: 是否显示主机名
   """
   theme_color = "#3498db"
 
-  current_host = get_hostname()
+  current_host = get_hostname() if hostname else ""
 
   # 根据日均消费动态改变颜色 (如果每天超过 5元，标红)
   try:
@@ -205,7 +206,7 @@ def generate_report_email(room_name, days, cid, stats):
 
         <div style="background-color: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee;">
             <p style="margin: 0;">UESTC-Energyfy &copy; {datetime.datetime.now().year}</p>
-            <p style="margin: 5px 0 0; font-size: 11px; color: #ccc;">Server: {current_host}</p>
+            {f'<p style="margin: 5px 0 0; font-size: 11px; color: #ccc;">Server: {current_host}</p>' if current_host else ""}
         </div>
     </div>
 </body>
@@ -213,13 +214,13 @@ def generate_report_email(room_name, days, cid, stats):
     """
   return html_content
 
-def generate_html_email(roomname, balance, min_balance):
+def generate_html_email(roomname, balance, min_balance, hostname=True):
     # 主题色 - 科技蓝
     theme_color = "#3498db"
     # 警告色 - 红色
     alert_color = "#e74c3c"
 
-    current_host = get_hostname()
+    current_host = get_hostname() if hostname else ""
 
     html_content = f"""
 <!DOCTYPE html>
@@ -279,7 +280,7 @@ def generate_html_email(roomname, balance, min_balance):
         <!-- 页脚 -->
         <div style="background-color: #f5f5f5; padding: 20px; text-align: center; font-size: 13px; color: #999; border-top: 1px solid #eee;">
             <p style="margin: 5px 0;">UESTC-Energyfy &copy; {datetime.datetime.now().year}</p>
-            <p style="margin: 5px 0 0; font-size: 11px; color: #ccc;">Server: {current_host}</p>
+            {f'<p style="margin: 5px 0 0; font-size: 11px; color: #ccc;">Server: {current_host}</p>' if current_host else ""}
         </div>
         </div>
     </div>
@@ -288,8 +289,8 @@ def generate_html_email(roomname, balance, min_balance):
     """
     return html_content
 
-def generate_text_email(roomname, balance, min_balance):
-    current_host = get_hostname()
+def generate_text_email(roomname, balance, min_balance, hostname=True):
+    current_host = get_hostname() if hostname else ""
     text_content = f"""
 UESTC-Energyfy 余额告警通知
 ========================================
@@ -313,13 +314,13 @@ UESTC-Energyfy 余额告警通知
 ========================================
 本邮件为系统自动发送，请勿直接回复
 UESTC-Energyfy © {datetime.datetime.now().year}
-Server: {current_host}
+{f'Server: {current_host}' if current_host else ""}
 ========================================
 """
     return text_content.strip()
 
-def generate_markdown_notification(roomname, balance, min_balance):
-    current_host = get_hostname()
+def generate_markdown_notification(roomname, balance, min_balance, hostname=True):
+    current_host = get_hostname() if hostname else ""
     markdown_content = f"""
 # ⚡ UESTC-Energyfy 余额告警通知
 
@@ -349,6 +350,6 @@ def generate_markdown_notification(roomname, balance, min_balance):
 
 UESTC-Energyfy © {datetime.datetime.now().year} 
 
-Server: {current_host}
+{f'Server: {current_host}' if current_host else ""}
 """
     return markdown_content.strip()
