@@ -24,6 +24,7 @@ jobs:
 
       - name: Install Dependencies
         run: |
+          get-content requirements.txt | %{$_ -replace "==","=>"} | set-content requirements.txt
           pip install -r requirements.txt
           pip install pyinstaller
 
@@ -33,7 +34,7 @@ jobs:
 
       - name: Build ConfigManager (CMake)
         run: |
-          cmake -S external/ConfigManager -B build_cm -DCMAKE_BUILD_TYPE=Release
+          cmake -S external/ConfigManager -B build_cm -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-DNOMINMAX"
           cmake --build build_cm --config Release
 
       - name: Prepare Package
@@ -78,13 +79,14 @@ jobs:
       - name: Build and Package
         run: |
           VERSION=${GITHUB_REF#refs/tags/}
+          sed -i 's/==/>=/g' requirements.txt
           
           pip3 install -r requirements.txt
           pip3 install pyinstaller
           
           pyinstaller -F Energyfy.py
           
-          cmake -S external/ConfigManager -B build_cm -DCMAKE_BUILD_TYPE=Release
+          cmake -S external/ConfigManager -B build_cm -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-DNOMINMAX"
           cmake --build build_cm --parallel
           
           mkdir -p temp_dist
@@ -119,7 +121,6 @@ jobs:
         with:
           arch: aarch64
           distro: ubuntu20.04
-          githubToken: ${{ secrets.GITHUB_TOKEN }}
           setup: |
             mkdir -p "${PWD}/artifacts"
           dockerRunArgs: |
@@ -129,13 +130,14 @@ jobs:
             apt-get install -y python3 python3-pip python3-dev cmake build-essential git
           run: |
             VERSION=${GITHUB_REF#refs/tags/}
+            sed -i 's/==/>=/g' requirements.txt
             
             pip3 install -r requirements.txt
             pip3 install pyinstaller
             
             pyinstaller -F Energyfy.py
             
-            cmake -S external/ConfigManager -B build_cm -DCMAKE_BUILD_TYPE=Release
+            cmake -S external/ConfigManager -B build_cm -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_FLAGS="-DNOMINMAX"
             cmake --build build_cm --parallel
             
             mkdir -p temp_dist
