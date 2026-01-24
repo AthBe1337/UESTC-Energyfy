@@ -4,6 +4,7 @@ from bs4 import BeautifulSoup
 import re
 import json
 import logging
+import os
 
 # 尝试导入项目的日志模块，如果失败则使用禁用日志的版本
 try:
@@ -32,7 +33,7 @@ class RoomInfo:
         self.LOGIN_URL = f"{self.BASE_URL}/authserver/login"
         self.TARGET_URL = f"{self.PORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/index.do#/record"
         self.INFO_API = f"{self.PORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/dormElecPrepaidMan/queryRoomInfo.do"
-        self.logger = logger if logger is not None else get_logger()
+        self.logger = logger if logger is not None else get_logger(log_level=logging.DEBUG)
 
         self.logger.debug("[RoomInfo] 初始化 -> 用户名: %s", self.USERNAME)
 
@@ -247,43 +248,86 @@ class RoomInfo:
         :return: [(宿舍ID字符串, 宿舍信息字典或None), ...]
         :raises RuntimeError: 登录失败、请求失败或响应异常时抛出
         """
-        self.logger.debug("[RoomInfo.get] 开始查询宿舍列表: %s", queries)
+        queries_list = list(queries)  # 将可迭代对象转换为列表
+        self.logger.debug("[RoomInfo.get] 开始查询宿舍列表: %s", queries_list)
+        
         try:
             final_response, cookies, redirect_history = self.login()
 
             if not final_response or not cookies:
                 raise RuntimeError("登录失败，未获取有效会话")
 
-            # 构造批量 roomIds 参数
-            room_ids_list = [{"DORM_ID": str(q)} for q in queries]
-            payload = {
-                "roomIds": json.dumps(room_ids_list, ensure_ascii=False)
-            }
             headers = {
                 'Content-Type': 'application/x-www-form-urlencoded',
             }
 
-            # 发送请求
-            response = requests.post(
-                self.INFO_API,
-                data=payload,
-                headers=headers,
-                cookies=cookies
-            )
-            response.raise_for_status()
-
-            response_list = response.json()
             result = []
+            batch_size = 50  # 每批最多50个请求
+            
+            # 分段处理查询
+            if len(queries_list) > batch_size:
+                self.logger.debug("[RoomInfo.get] 查询数量 %s 超过 %s，进行分段请求", len(queries_list), batch_size)
+                
+                # 分段发送请求
+                for i in range(0, len(queries_list), batch_size):
+                    batch_queries = queries_list[i:i + batch_size]
+                    self.logger.debug("[RoomInfo.get] 发送第 %s 批请求，包含 %s 个宿舍", 
+                                     i // batch_size + 1, len(batch_queries))
+                    
+                    # 构造批量 roomIds 参数
+                    room_ids_list = [{"DORM_ID": str(q)} for q in batch_queries]
+                    payload = {
+                        "roomIds": json.dumps(room_ids_list, ensure_ascii=False)
+                    }
+                    
+                    # 发送请求
+                    response = requests.post(
+                        self.INFO_API,
+                        data=payload,
+                        headers=headers,
+                        cookies=cookies
+                    )
+                    response.raise_for_status()
 
-            for query, item in zip(queries, response_list):
-                room_info = item.get('roomInfo', {})
-                if room_info.get('retcode') == 0:
-                    self.logger.debug("[RoomInfo.get] 宿舍 %s 查询成功 -> 余额: %s", query, room_info.get("syje"))
-                    result.append((str(query), room_info))
-                else:
-                    self.logger.debug("[RoomInfo.get] 宿舍 %s 查询失败: %s", query, room_info.get("msg"))
-                    self.logger.warning(f"RoomInfo: 获取宿舍 {query} 信息失败: {room_info.get('msg')}")
-                    result.append((str(query), None))
+                    response_list = response.json()
+                    
+                    # 处理该批次的响应
+                    for query, item in zip(batch_queries, response_list):
+                        room_info = item.get('roomInfo', {})
+                        if room_info.get('retcode') == 0:
+                            self.logger.debug("[RoomInfo.get] 宿舍 %s 查询成功 -> 余额: %s", query, room_info.get("syje"))
+                            result.append((str(query), room_info))
+                        else:
+                            self.logger.debug("[RoomInfo.get] 宿舍 %s 查询失败: %s", query, room_info.get("msg"))
+                            self.logger.warning(f"RoomInfo: 获取宿舍 {query} 信息失败: {room_info.get('msg')}")
+                            result.append((str(query), None))
+            else:
+                # 一次性发送所有请求
+                room_ids_list = [{"DORM_ID": str(q)} for q in queries_list]
+                payload = {
+                    "roomIds": json.dumps(room_ids_list, ensure_ascii=False)
+                }
+
+                # 发送请求
+                response = requests.post(
+                    self.INFO_API,
+                    data=payload,
+                    headers=headers,
+                    cookies=cookies
+                )
+                response.raise_for_status()
+
+                response_list = response.json()
+
+                for query, item in zip(queries_list, response_list):
+                    room_info = item.get('roomInfo', {})
+                    if room_info.get('retcode') == 0:
+                        self.logger.debug("[RoomInfo.get] 宿舍 %s 查询成功 -> 余额: %s", query, room_info.get("syje"))
+                        result.append((str(query), room_info))
+                    else:
+                        self.logger.debug("[RoomInfo.get] 宿舍 %s 查询失败: %s", query, room_info.get("msg"))
+                        self.logger.warning(f"RoomInfo: 获取宿舍 {query} 信息失败: {room_info.get('msg')}")
+                        result.append((str(query), None))
 
             return result
 
