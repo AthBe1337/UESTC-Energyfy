@@ -33,7 +33,7 @@ class RoomInfo:
         self.LOGIN_URL = f"{self.BASE_URL}/authserver/login"
         self.TARGET_URL = f"{self.PORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/index.do#/record"
         self.INFO_API = f"{self.PORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/dormElecPrepaidMan/queryRoomInfo.do"
-        self.logger = logger if logger is not None else get_logger(log_level=logging.DEBUG)
+        self.logger = logger if logger is not None else get_logger()
 
         self.logger.debug("[RoomInfo] 初始化 -> 用户名: %s", self.USERNAME)
 
