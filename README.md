@@ -113,6 +113,13 @@ tail -f logs/Energyfy.log
 - `-b` `--backup-count` 指定日志文件备份数量，默认为`7`
 - `--report-interval` 统计电费消耗的周期，单位为天，默认为0，代表不统计。
 
+### 环境变量
+
+如果你不想将统一认证用户名与密码持久保存在配置文件中，可以在运行脚本前用以下环境变量指定，配置文件中相应项留空即可。
+
+- `UESTC_USERNAME` 统一认证用户名
+- `UESTC_PASSWORD` 统一认证密码
+
 **示例用法**
 ```bash
 ./Energyfy -c config.json #使用./config.json作为配置文件
