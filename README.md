@@ -2,39 +2,20 @@
 
 查询电子科技大学宿舍的电费余额，在低于阈值时发送邮件通知和*Server酱³*推送。
 
-## v1.2.2 新增功能
-
-现在可以在指定的周期后统计电费消耗趋势，并发送图表到收件人邮箱。示例如下。
-
-<img src="https://cloud.athbe.cn/f/WdEfm/I5KHP%29HHHICXY9QQQ6@%254%5BH.png" width="400" alt="用电报告示例" />
-
-### 兼容性
-完全兼容旧版本配置文件，由于新增了绘图功能，脚本资源开销会稍微增加。如果服务器资源过于紧张，可以选择不升级。
-
-### 开启方式
-如果你使用linux系统，首先保证安装中文字体
-```bash
-# Debian/Ubuntu/Kali
-sudo apt-get install -y fonts-wqy-microhei
-# ArchLinux
-sudo pacman -S wqy-microhei
-# Fedora/CentOS/RHEL
-sudo yum install -y wqy-microhei
-```
-启动时添加参数`--report-interval n`
-其中n为统计周期，单位为天，默认为0，代表不统计。
+> Energyfy-NEXT已上线，无需复杂配置，注册账号即可使用！[立即访问](https://energyfy.top)
 
 ---
 
 ## 目录
 
 - [通知示例](#通知示例)
-- [Server酱³是什么？](#Server酱³是什么？)
+- [Server酱³是什么？](#server酱是什么)
 - [快速开始](#快速开始)
   - [运行配置管理器](#运行配置管理器)
   - [运行脚本](#运行脚本)
 - [常见问题](#常见问题)
 - [可选参数](#可选参数)
+- [统计周报](#统计周报)
 - [使用源码](#使用源码)
   - [1 ConfigManager](#1-configmanager)
   - [2 手动编辑](#2-手动编辑)
@@ -138,6 +119,28 @@ tail -f logs/Energyfy.log
 ./Energyfy -l DEBUG -f logs/Energyfy.log #使用DEBUG级别日志，将日志输出到logs/Energyfy.log
 ./Energyfy -b 10 #指定日志文件备份数量为10
 ```
+
+## 统计周报
+
+现在可以在指定的周期后统计电费消耗趋势，并发送图表到收件人邮箱。示例如下。
+
+<img src="https://cloud.athbe.cn/f/WdEfm/I5KHP%29HHHICXY9QQQ6@%254%5BH.png" width="400" alt="用电报告示例" />
+
+### 兼容性
+完全兼容旧版本配置文件，由于新增了绘图功能，脚本资源开销会稍微增加。如果服务器资源过于紧张，可以选择不升级。
+
+### 开启方式
+如果你使用linux系统，首先保证安装中文字体
+```bash
+# Debian/Ubuntu/Kali
+sudo apt-get install -y fonts-wqy-microhei
+# ArchLinux
+sudo pacman -S wqy-microhei
+# Fedora/CentOS/RHEL
+sudo yum install -y wqy-microhei
+```
+启动时添加参数`--report-interval n`
+其中n为统计周期，单位为天，默认为0，代表不统计。
 
 ## 使用源码
 
