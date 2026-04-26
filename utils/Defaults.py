@@ -262,7 +262,7 @@ def generate_html_email(roomname, balance, min_balance, hostname=True):
 
             <!-- 操作按钮 -->
             <div style="text-align: center; margin: 30px 0 20px;">
-                <a href="https://eportal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do"  rel="noreferrer"
+                <a href="https://portal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do"  rel="noreferrer"
                    style="background-color: {theme_color}; 
                           color: #fff; 
                           text-decoration: none; 
@@ -307,7 +307,7 @@ UESTC-Energyfy 余额告警通知
 ----------------------------------------
 
 立即充值：
-请访问：https://eportal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do
+请访问：https://portal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do
 
 如有疑问，别有疑问。。
 
@@ -343,7 +343,7 @@ def generate_markdown_notification(roomname, balance, min_balance, hostname=True
 ---
 
 ## 🚀 立即充值
-[点击进入充值页面](https://eportal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do)
+[点击进入充值页面](https://portal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do)
 
 
 ---
