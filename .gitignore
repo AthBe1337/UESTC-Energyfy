@@ -10,3 +10,12 @@ logs
 .venv/
 __pycache__/
 **/__pycache__/
+
+# AI agent/editor metadata
+.codex
+.claude
+.cursor
+.windsurf
+.roo
+.continue
+.opencode
