@@ -10,6 +10,7 @@ from utils.RoomInfo import RoomInfo
 from utils.NotificationManager import NotificationManager
 from utils.Logger import get_logger
 from utils.StatisticsReporter import StatisticsReporter
+from utils.RoomInfo import TwoFactorRequired
 
 
 def parse_args():
@@ -94,8 +95,55 @@ def parse_args():
         type=int,
         default=0
     )
+    parser.add_argument(
+        "--verify",
+        help="交互式验证模式：完成登录和短信验证码认证，将浏览器指纹持久化到配置文件，"
+             "后续运行时无需再次验证。",
+        action="store_true",
+        default=False
+    )
 
     return parser.parse_args()
+
+def save_bfp_to_config(config_path, bfp):
+    """将 bfp 写入配置文件"""
+    import json
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        config['bfp'] = bfp
+        with open(config_path, 'w', encoding='utf-8') as f:
+            json.dump(config, f, indent=4, ensure_ascii=False)
+        return True
+    except Exception as e:
+        get_logger().error(f"保存 bfp 到配置文件失败: {e}")
+        return False
+
+
+def verify_account(username, password):
+    """交互式验证账号，返回 bfp"""
+    from utils.RoomInfo import RoomInfo, TwoFactorRequired
+    logger = get_logger()
+
+    def get_code(msg):
+        print(f"\n>>> {msg}")
+        return input("请输入验证码: ").strip()
+
+    logger.info(f"开始验证账号: {username}")
+    room_info = RoomInfo(username, password, verify_code_handler=get_code)
+    try:
+        final_resp, cookies, history, state = room_info.login()
+        bfp = state.get('bfp') if state else None
+        if bfp:
+            logger.info(f"验证成功! bfp: {bfp}")
+            return bfp
+        else:
+            logger.error("验证完成但未获取到 bfp")
+            return None
+    except Exception as e:
+        logger.error(f"验证失败: {e}")
+        return None
+
 
 def send_notifications(room_name, balance, alert_balance, room_config, notification):
     """并行发送通知的辅助函数"""
@@ -192,6 +240,20 @@ def main(path=None):
             else:
                 username = config_reader.get("username")
                 password = config_reader.get("password")
+
+            # --verify 模式：交互式验证并保存 bfp
+            if args.verify:
+                logger.info("进入验证模式...")
+                if os.getenv("UESTC_USERNAME") and os.getenv("UESTC_PASSWORD"):
+                    logger.error("验证模式不支持环境变量账号，请在配置文件中设置账号密码")
+                    return
+                bfp = verify_account(username, password)
+                if bfp:
+                    if save_bfp_to_config(config_reader.config_path, bfp):
+                        logger.info(f"bfp 已保存到配置文件，后续运行时将跳过二次认证")
+                    else:
+                        logger.error("bfp 保存失败")
+                return
             check_interval = config_reader.get("check_interval")
             alert_balance = config_reader.get("alert_balance")
             smtp_config = config_reader.get("smtp")
@@ -211,7 +273,8 @@ def main(path=None):
 
             # 初始化房间信息查询器
             logger.debug("[main] 初始化 RoomInfo")
-            room_info = RoomInfo(username, password)
+            bfp = os.getenv("UESTC_BFP") or config_reader.get("bfp")
+            room_info = RoomInfo(username, password, bfp=bfp)
 
             # 获取所有房间名称
             room_names = [q["room_name"] for q in queries]
@@ -281,6 +344,10 @@ def main(path=None):
             logger.info(f"下次检查将在 {check_interval} 秒后进行")
             time.sleep(check_interval)
 
+        except TwoFactorRequired:
+            logger.error("需要二次认证！请运行 'python Energyfy.py --verify' 完成验证，"
+                         "之后即可正常使用。")
+            return
         except Exception as e:
             logger.exception("主程序发生未处理异常")
             logger.info("30秒后重新启动...")
