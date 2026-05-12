@@ -5,8 +5,15 @@ import re
 import json
 import logging
 import os
+import hashlib
+import io
 
-# 尝试导入项目的日志模块，如果失败则使用禁用日志的版本
+try:
+    from PIL import Image, ImageDraw, ImageFont
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
+
 try:
     from utils.Logger import get_logger
 except ImportError:
@@ -16,15 +23,31 @@ except ImportError:
         logger.addHandler(logging.NullHandler())
         return logger
 
+
+class TwoFactorRequired(Exception):
+    """登录后需要二次认证"""
+    def __init__(self, reauth_url, session, message="需要二次认证"):
+        self.reauth_url = reauth_url
+        self.session = session
+        self.message = message
+        super().__init__(message)
+
+
 class RoomInfo:
 
-    def __init__(self, username, password, logger=None):
+    def __init__(self, username, password, logger=None, bfp=None,
+                 verify_code_handler=None):
         """
         初始化 RoomInfo 对象
         
         :param username: 用户名
         :param password: 密码
-        :param logger: 可选的自定义日志器，如果为None则使用默认日志器
+        :param logger: 可选的自定义日志器
+        :param bfp: 可选，浏览器指纹（MULTIFACTOR_BROWSER_FINGERPRINT cookie 值）。
+                    如果提供且设备已被信任，可跳过二次认证。
+        :param verify_code_handler: 可选，当需要二次认证时调用的函数，
+                                    接收消息字符串，返回验证码字符串。
+                                    如果为 None 且需要二次认证，则抛出 TwoFactorRequired
         """
         self.USERNAME = username
         self.PASSWORD = password
@@ -34,8 +57,94 @@ class RoomInfo:
         self.TARGET_URL = f"{self.PORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/index.do#/record"
         self.INFO_API = f"{self.PORTAL_BASE_URL}/qljfwapp/sys/lwUestcDormElecPrepaid/dormElecPrepaidMan/queryRoomInfo.do"
         self.logger = logger if logger is not None else get_logger()
+        self.bfp = bfp
+        self.verify_code_handler = verify_code_handler
 
-        self.logger.debug("[RoomInfo] 初始化 -> 用户名: %s", self.USERNAME)
+        self._reauth_session = None
+        self._reauth_params = None
+        self._new_bfp = bfp
+
+        self.logger.debug("[RoomInfo] 初始化 -> 用户名: %s, bfp: %s",
+                          self.USERNAME,
+                          self.bfp[:16] + "..." if self.bfp else "无")
+
+    def _create_session(self):
+        """创建 requests.Session 并设置浏览器请求头"""
+        session = requests.Session()
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'Connection': 'keep-alive',
+        }
+        session.headers.update(headers)
+        return session
+
+    def _compute_fingerprint(self):
+        """在 Python 中复现 common-header.js 的浏览器指纹算法。
+        指纹 = MD5(browser|engine|os|cpu|device|model|vendor|platform|
+                    language|cores|touch|memory|canvasMD5)
+        canvas 部分用 Pillow 复现，其余匹配 Chrome 120 on Linux。
+        """
+        if not HAS_PIL:
+            raise RuntimeError("需要 Pillow 库来计算浏览器指纹")
+
+        canvas = Image.new('RGB', (220, 30), 'white')
+        draw = ImageDraw.Draw(canvas)
+        draw.rectangle([112, 1, 112 + 62, 1 + 20], fill='#f60')
+        txt = 'WiseduCiap,com <canvas> 1.0'
+        try:
+            font = ImageFont.truetype(
+                '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 14)
+        except Exception:
+            font = ImageFont.load_default()
+        draw.text((2, 13), txt, fill='#069', font=font)
+        draw.text((4, 15), txt, fill=(102, 204, 0), font=font)
+
+        buf = io.BytesIO()
+        canvas.save(buf, format='PNG')
+        canvas_md5 = hashlib.md5(buf.getvalue()).hexdigest().upper()
+
+        items = [
+            'Chrome', 'Blink', 'Linux', 'amd64', '', '', '',
+            'Linux x86_64', 'zh-CN', '8', '0', '8',
+            canvas_md5,
+        ]
+        return hashlib.md5('|'.join(items).encode()).hexdigest().upper()
+
+    def _ensure_bfp(self, session):
+        """确保 session 有 MULTIFACTOR_BROWSER_FINGERPRINT cookie。
+        如果已有 bfp 则直接设置，否则计算新指纹并提交到服务器。"""
+        if self._new_bfp:
+            session.cookies.set(
+                'MULTIFACTOR_BROWSER_FINGERPRINT', self._new_bfp,
+                domain='idas.uestc.edu.cn', path='/'
+            )
+            self.logger.debug("[RoomInfo] 使用已有 bfp: %s...", self._new_bfp[:16])
+            return
+
+        fingerprint = self._compute_fingerprint()
+        self.logger.debug("[RoomInfo] 指纹计算完成: %s", fingerprint)
+        try:
+            session.post(
+                f"{self.BASE_URL}/authserver/bfp/info",
+                data={'bfp': fingerprint},
+                headers={
+                    'Referer': self.LOGIN_URL,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json, text/javascript, */*; q=0.01',
+                }
+            )
+            bfp = session.cookies.get('MULTIFACTOR_BROWSER_FINGERPRINT')
+            if bfp:
+                self._new_bfp = bfp
+                self.logger.debug("[RoomInfo] 新 bfp 已获取: %s...", bfp[:16])
+        except Exception as e:
+            self.logger.warning("[RoomInfo] 指纹提交失败: %s", e)
+
+    def get_session_state(self):
+        """返回当前可持久化的 bfp 值"""
+        return {'bfp': self._new_bfp} if self._new_bfp else None
 
     def get_dynamic_js(self, session):
         """
@@ -87,7 +196,7 @@ class RoomInfo:
             ctx = execjs.compile(js_code)
             self.logger.debug("[RoomInfo.create_js_context] 编译成功 (默认环境)")
             return ctx
-        except Exception as e:
+        except Exception:
             try:
                 ctx = execjs.get("Node").compile(js_code)
                 self.logger.debug("[RoomInfo.create_js_context] 编译成功 (Node 环境)")
@@ -146,28 +255,161 @@ class RoomInfo:
                     # 非重定向响应，返回最终结果
                     self.logger.debug("[RoomInfo.follow_redirects] 最终URL: %s", current_url)
                     return response, redirect_history
-            except requests.exceptions.RequestException as e:
+            except Exception as e:
                 raise RuntimeError("重定向请求失败") from e
 
         # 超出最大重定向次数
         raise RuntimeError(f"超过最大重定向次数 ({max_redirects})")
 
+    def _is_2fa_redirect(self, url):
+        """检测是否是二次认证页面"""
+        return 'reAuthCheck/reAuthLoginView.do' in url
+
+    def _parse_reauth_page(self, response):
+        """解析二次认证页面，提取 reAuthParams"""
+        soup = BeautifulSoup(response.text, 'html.parser')
+        script_tags = soup.find_all('script')
+        reauth_params = {}
+
+        for script in script_tags:
+            if script.string and 'reAuthParams' in script.string:
+                match = re.search(
+                    r'var\s+reAuthParams\s*=\s*({.*?});', script.string, re.DOTALL)
+                if match:
+                    js_obj = match.group(1)
+                    for item in re.finditer(
+                            r'"(\w+)"\s*:\s*("(?:[^"\\]|\\.)*"|[^,}\]]+)', js_obj):
+                        key = item.group(1)
+                        val = item.group(2).strip().strip('"')
+                        # 反转义 JS 字符串中的 \/ → /
+                        val = val.replace(r'\/', '/')
+                        reauth_params[key] = val
+                    break
+
+        return reauth_params
+
+    def _reauth_headers(self):
+        """2FA API 请求所需的 HTTP 头"""
+        return {
+            'Referer': f"{self.BASE_URL}/authserver/reAuthCheck/reAuthLoginView.do?isMultifactor=true",
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+        }
+
+    def send_verify_code(self):
+        """发送短信验证码。"""
+        if not self._reauth_session:
+            raise RuntimeError("没有活动的二次认证会话，请先调用 login()")
+
+        session = self._reauth_session
+        params = self._reauth_params
+        headers = self._reauth_headers()
+
+        self.logger.debug("[RoomInfo] 切换到短信验证码模式 (reAuthType=3)")
+        change_resp = session.post(
+            f"{self.BASE_URL}/authserver/reAuthCheck/changeReAuthType.do",
+            data={
+                'isMultifactor': params.get('isMultifactor', 'true'),
+                'reAuthType': '3',
+                'service': params.get('service', ''),
+            },
+            headers=headers,
+        )
+        self.logger.debug("[RoomInfo] changeReAuthType 响应: %s",
+                          change_resp.text[:200])
+
+        self.logger.debug("[RoomInfo] 发送短信验证码...")
+        send_resp = session.post(
+            f"{self.BASE_URL}/authserver/dynamicCode/getDynamicCodeByReauth.do",
+            data={
+                'userName': params.get('reAuthUserId', self.USERNAME),
+                'authCodeTypeName': 'reAuthDynamicCodeType',
+            },
+            headers=headers,
+        )
+        self.logger.debug("[RoomInfo] 发送验证码响应: %s", send_resp.text[:500])
+
+        try:
+            result = send_resp.json()
+        except ValueError:
+            raise RuntimeError(f"发送验证码响应异常: {send_resp.text[:200]}")
+
+        if result.get('res') == 'success':
+            mobile = result.get('mobile', '')
+            msg = result.get('returnMessage', '验证码已发送')
+            full_msg = f"{msg}{mobile}"
+            self.logger.info("[RoomInfo] 验证码已发送: %s", full_msg)
+            return full_msg
+        elif result.get('res') == 'code_time_fail':
+            wait = result.get('codeTime', 60)
+            msg = result.get('returnMessage', f'请{wait}秒后再试')
+            raise RuntimeError(f"发送验证码过于频繁: {msg}")
+        else:
+            msg = result.get('returnMessage', '发送失败')
+            raise RuntimeError(f"发送验证码失败: {msg}")
+
+    def submit_verify_code(self, code, trust_device=True):
+        """提交验证码完成二次认证。
+        :param code: 短信验证码
+        :param trust_device: 是否信任此设备（下次免二次认证）
+        :return: (final_response, cookies_dict, redirect_history, session_state)
+        """
+        if not self._reauth_session:
+            raise RuntimeError("没有活动的二次认证会话")
+
+        session = self._reauth_session
+        params = self._reauth_params
+
+        submit_data = {
+            'service': params.get('service', ''),
+            'reAuthType': '3',
+            'isMultifactor': params.get('isMultifactor', 'true'),
+            'password': '',
+            'dynamicCode': code,
+            'uuid': '',
+            'answer1': '',
+            'answer2': '',
+            'otpCode': '',
+            'skipTmpReAuth': 'true' if trust_device else 'false',
+        }
+
+        self.logger.debug("[RoomInfo] 提交二次认证, trust_device=%s", trust_device)
+        submit_resp = session.post(
+            f"{self.BASE_URL}/authserver/reAuthCheck/reAuthSubmit.do",
+            data=submit_data,
+            allow_redirects=False,
+            headers=self._reauth_headers(),
+        )
+        self.logger.debug("[RoomInfo] reAuthSubmit 响应: status=%s, body=%s",
+                          submit_resp.status_code, submit_resp.text[:500])
+
+        try:
+            result = submit_resp.json()
+            if result.get('code') in ('reAuth_failed', 'reAuth_unauthorized'):
+                raise RuntimeError(f"二次认证失败: {result.get('msg', '未知错误')}")
+        except ValueError:
+            pass
+
+        final_response, redirect_history = self.follow_redirects(
+            session,
+            f"{self.BASE_URL}/authserver/login?service={params.get('service', '')}"
+        )
+
+        self._new_bfp = session.cookies.get('MULTIFACTOR_BROWSER_FINGERPRINT')
+        cookies_dict = session.cookies.get_dict()
+        session_state = {'bfp': self._new_bfp}
+
+        self.logger.debug("[RoomInfo] 二次认证完成，最终URL: %s", final_response.url)
+        return final_response, cookies_dict, redirect_history, session_state
 
     def login(self):
-        """
-        执行登录流程并返回最终响应和会话信息
-        :return: (最终响应对象, cookies字典, 重定向历史列表)
-        :raises RuntimeError: 初始化环境失败、登录失败或请求异常时抛出
+        """执行登录流程。
+        :return: (final_response, cookies_dict, redirect_history, session_state)
+        :raises TwoFactorRequired: 需要二次认证但没有设置 verify_code_handler
         """
         self.logger.debug("[RoomInfo.login] 开始执行登录流程")
-        session = requests.Session()
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-            'Connection': 'keep-alive'
-        }
-        session.headers.update(headers)
+        session = self._create_session()
 
         try:
             # 获取动态JS代码
@@ -184,7 +426,7 @@ class RoomInfo:
             if not execution:
                 raise ValueError("无法找到execution参数")
             execution = execution.get('value', '')
-            self.logger.debug("[RoomInfo.login] 提取 execution: %s", execution)
+            self.logger.debug("[RoomInfo.login] 提取 execution: %s", execution[:80])
 
             salt_input = soup.find('input', {'id': 'pwdEncryptSalt'})
             salt = salt_input.get('value') if salt_input else "rjBFAaHsNkKAhpoi"
@@ -195,7 +437,9 @@ class RoomInfo:
         except Exception as e:
             raise RuntimeError("初始化登录环境失败") from e
 
-        # 构造登录载荷
+        # 设置浏览器指纹 cookie
+        self._ensure_bfp(session)
+
         payload = {
             'username': self.USERNAME,
             'password': encrypted_pwd,
@@ -213,16 +457,17 @@ class RoomInfo:
             if name and name not in payload:
                 payload[name] = input_tag.get('value', '')
 
-        self.logger.debug("[RoomInfo.login] 构造登录载荷: %s", payload)
+        self.logger.debug("[RoomInfo.login] 提交登录请求...")
 
         try:
             # 提交登录请求（禁用重定向）
             login_response = session.post(login_page.url, data=payload, allow_redirects=False)
             self.logger.debug("[RoomInfo.login] 登录响应状态码: %s", login_response.status_code)
-            login_response.raise_for_status()
 
             # 检查登录响应
             if login_response.status_code not in (301, 302, 303, 307, 308):
+                if login_response.status_code == 401:
+                    raise RuntimeError("登录失败: 账号或密码错误，或账号已被冻结")
                 raise RuntimeError(f"登录失败! 状态码: {login_response.status_code}")
 
             # 获取重定向URL
@@ -232,14 +477,42 @@ class RoomInfo:
             redirect_url = login_response.headers['Location']
             self.logger.debug("[RoomInfo.login] 登录重定向URL: %s", redirect_url)
 
-            # 跟随重定向链
-            final_response, redirect_history = self.follow_redirects(session, redirect_url)
+            if self._is_2fa_redirect(redirect_url):
+                self.logger.info("[RoomInfo.login] 检测到二次认证页面")
+
+                self._reauth_session = session
+                reauth_page = session.get(redirect_url, allow_redirects=False)
+                self._reauth_params = self._parse_reauth_page(reauth_page)
+
+                if self.verify_code_handler:
+                    msg = self.send_verify_code()
+                    self.logger.info("[RoomInfo.login] 等待验证码输入...")
+                    code = self.verify_code_handler(msg)
+                    return self.submit_verify_code(code, trust_device=True)
+                else:
+                    raise TwoFactorRequired(
+                        reauth_url=redirect_url,
+                        session=session,
+                        message="需要二次认证（短信验证码），请运行 --verify"
+                    )
+
+            # 无二次认证，直接跟随重定向
+            final_response, redirect_history = self.follow_redirects(
+                session, redirect_url)
             self.logger.debug("[RoomInfo.login] 最终响应URL: %s", final_response.url)
 
-            # 返回最终响应、重定向历史和所有cookie
-            return final_response, session.cookies.get_dict(), redirect_history
-        except requests.exceptions.RequestException as e:
-            raise RuntimeError("登录请求失败") from e
+            self._new_bfp = session.cookies.get('MULTIFACTOR_BROWSER_FINGERPRINT')
+            cookies_dict = session.cookies.get_dict()
+            session_state = {'bfp': self._new_bfp}
+
+            return final_response, cookies_dict, redirect_history, session_state
+
+        except TwoFactorRequired:
+            raise
+        except RuntimeError:
+            raise
+        except Exception as e:
+            raise RuntimeError(f"登录请求失败: {e}") from e
 
     def get(self, queries):
         """
@@ -252,7 +525,11 @@ class RoomInfo:
         self.logger.debug("[RoomInfo.get] 开始查询宿舍列表: %s", queries_list)
         
         try:
-            final_response, cookies, redirect_history = self.login()
+            login_result = self.login()
+            if len(login_result) == 4:
+                final_response, cookies, redirect_history, session_state = login_result
+            else:
+                final_response, cookies, redirect_history = login_result
 
             if not final_response or not cookies:
                 raise RuntimeError("登录失败，未获取有效会话")
@@ -331,8 +608,7 @@ class RoomInfo:
 
             return result
 
-        except requests.exceptions.RequestException as e:
-            raise RuntimeError("宿舍信息请求失败") from e
+        except TwoFactorRequired:
+            raise
         except Exception as e:
             raise RuntimeError("获取宿舍信息时出错") from e
-

@@ -15,6 +15,10 @@ _DEFAULT_SCHEMA = {
       "type": "string",
       "description": "统一认证平台密码。"
     },
+    "bfp": {
+      "type": "string",
+      "description": "浏览器指纹，运行 --verify 后自动生成并持久化，用于跳过二次认证。"
+    },
     "check_interval": {
       "type": "integer",
       "default": 600,
