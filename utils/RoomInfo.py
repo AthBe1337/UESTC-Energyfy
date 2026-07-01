@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import hashlib
+import secrets
 import io
 
 try:
@@ -16,12 +17,14 @@ except ImportError:
 
 try:
     from utils.Logger import get_logger
+    from utils import __version__
 except ImportError:
     # 当被其他项目调用时，使用 NullHandler 禁用日志输出
     def get_logger():
         logger = logging.getLogger("RoomInfo")
         logger.addHandler(logging.NullHandler())
         return logger
+    __version__ = "1.3.0"
 
 
 class TwoFactorRequired(Exception):
@@ -36,10 +39,10 @@ class TwoFactorRequired(Exception):
 class RoomInfo:
 
     def __init__(self, username, password, logger=None, bfp=None,
-                 verify_code_handler=None):
+                 verify_code_handler=None, seed=None):
         """
         初始化 RoomInfo 对象
-        
+
         :param username: 用户名
         :param password: 密码
         :param logger: 可选的自定义日志器
@@ -48,6 +51,9 @@ class RoomInfo:
         :param verify_code_handler: 可选，当需要二次认证时调用的函数，
                                     接收消息字符串，返回验证码字符串。
                                     如果为 None 且需要二次认证，则抛出 TwoFactorRequired
+        :param seed: 可选，BFP 种子字符串。如果提供，将用于生成确定性的浏览器指纹
+                    （替换浏览器标识中的随机部分）；如果为 None，则使用随机字符串，
+                    保证每次 --verify 生成的 BFP 唯一。
         """
         self.USERNAME = username
         self.PASSWORD = password
@@ -59,6 +65,7 @@ class RoomInfo:
         self.logger = logger if logger is not None else get_logger()
         self.bfp = bfp
         self.verify_code_handler = verify_code_handler
+        self.seed = seed
 
         self._reauth_session = None
         self._reauth_params = None
@@ -85,6 +92,9 @@ class RoomInfo:
         指纹 = MD5(browser|engine|os|cpu|device|model|vendor|platform|
                     language|cores|touch|memory|canvasMD5)
         canvas 部分用 Pillow 复现，其余匹配 Chrome 120 on Linux。
+
+        browser 标识使用 seed 或随机字符串，确保每次 --verify 生成
+        的 BFP 唯一，避免所有用户共享同一指纹。
         """
         if not HAS_PIL:
             raise RuntimeError("需要 Pillow 库来计算浏览器指纹")
@@ -105,8 +115,12 @@ class RoomInfo:
         canvas.save(buf, format='PNG')
         canvas_md5 = hashlib.md5(buf.getvalue()).hexdigest().upper()
 
+        # 使用 seed 或随机字符串作为浏览器标识，保证 BFP 唯一性
+        browser_ident = ('Energyfy-' + self.seed) if self.seed \
+            else 'Energyfy-' + secrets.token_hex(8)
+
         items = [
-            'Chrome', 'Blink', 'Linux', 'amd64', '', '', '',
+            browser_ident, 'Blink', 'Linux', 'amd64', '', '', '',
             'Linux x86_64', 'zh-CN', '8', '0', '8',
             canvas_md5,
         ]
