@@ -1,10 +1,9 @@
-__version__ = "1.2.3"
 import sys
 import time
 import argparse
 import os
 import concurrent.futures
-from utils import Defaults
+from utils import Defaults, __version__
 from utils.Config import ConfigReader
 from utils.RoomInfo import RoomInfo
 from utils.NotificationManager import NotificationManager
@@ -102,6 +101,14 @@ def parse_args():
         action="store_true",
         default=False
     )
+    parser.add_argument(
+        "--seed",
+        help="BFP 种子字符串，用于生成确定性的浏览器指纹。"
+             "仅在 --verify 模式下生效。如果未提供，将使用随机字符串，"
+             "保证每次验证生成唯一的 BFP。",
+        type=str,
+        default=None
+    )
 
     return parser.parse_args()
 
@@ -120,7 +127,7 @@ def save_bfp_to_config(config_path, bfp):
         return False
 
 
-def verify_account(username, password):
+def verify_account(username, password, seed=None):
     """交互式验证账号，返回 bfp"""
     from utils.RoomInfo import RoomInfo, TwoFactorRequired
     logger = get_logger()
@@ -130,7 +137,8 @@ def verify_account(username, password):
         return input("请输入验证码: ").strip()
 
     logger.info(f"开始验证账号: {username}")
-    room_info = RoomInfo(username, password, verify_code_handler=get_code)
+    room_info = RoomInfo(username, password, verify_code_handler=get_code,
+                         seed=seed)
     try:
         final_resp, cookies, history, state = room_info.login()
         bfp = state.get('bfp') if state else None
@@ -247,7 +255,9 @@ def main(path=None):
                 if os.getenv("UESTC_USERNAME") and os.getenv("UESTC_PASSWORD"):
                     logger.error("验证模式不支持环境变量账号，请在配置文件中设置账号密码")
                     return
-                bfp = verify_account(username, password)
+                if args.seed:
+                    logger.info(f"使用自定义 seed: {args.seed}")
+                bfp = verify_account(username, password, seed=args.seed)
                 if bfp:
                     if save_bfp_to_config(config_reader.config_path, bfp):
                         logger.info(f"bfp 已保存到配置文件，后续运行时将跳过二次认证")
