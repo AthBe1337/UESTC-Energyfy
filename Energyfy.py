@@ -1,15 +1,15 @@
+__version__ = "1.2.3"
 import sys
 import time
 import argparse
 import os
 import concurrent.futures
-from utils import Defaults, __version__
+from utils import Defaults
 from utils.Config import ConfigReader
 from utils.RoomInfo import RoomInfo
 from utils.NotificationManager import NotificationManager
 from utils.Logger import get_logger
 from utils.StatisticsReporter import StatisticsReporter
-from utils.RoomInfo import TwoFactorRequired
 
 
 def parse_args():
@@ -94,63 +94,55 @@ def parse_args():
         type=int,
         default=0
     )
-    parser.add_argument(
-        "--verify",
-        help="交互式验证模式：完成登录和短信验证码认证，将浏览器指纹持久化到配置文件，"
-             "后续运行时无需再次验证。",
-        action="store_true",
-        default=False
-    )
-    parser.add_argument(
-        "--seed",
-        help="BFP 种子字符串，用于生成确定性的浏览器指纹。"
-             "仅在 --verify 模式下生效。如果未提供，将使用随机字符串，"
-             "保证每次验证生成唯一的 BFP。",
-        type=str,
-        default=None
-    )
 
     return parser.parse_args()
 
-def save_bfp_to_config(config_path, bfp):
-    """将 bfp 写入配置文件"""
-    import json
-    try:
-        with open(config_path, 'r', encoding='utf-8') as f:
-            config = json.load(f)
-        config['bfp'] = bfp
-        with open(config_path, 'w', encoding='utf-8') as f:
-            json.dump(config, f, indent=4, ensure_ascii=False)
-        return True
-    except Exception as e:
-        get_logger().error(f"保存 bfp 到配置文件失败: {e}")
-        return False
-
-
-def verify_account(username, password, seed=None):
-    """交互式验证账号，返回 bfp"""
-    from utils.RoomInfo import RoomInfo, TwoFactorRequired
+def _broadcast_cookie_expiry(queries, notification):
+    """向所有房间的配置通知渠道发送 Cookie 过期通知。"""
     logger = get_logger()
+    logger.info("Cookie 已过期，正在向所有通知渠道发送通知...")
 
-    def get_code(msg):
-        print(f"\n>>> {msg}")
-        return input("请输入验证码: ").strip()
+    text = Defaults.generate_cookie_expiry_text()
+    html = Defaults.generate_cookie_expiry_html()
+    markdown = Defaults.generate_cookie_expiry_markdown()
 
-    logger.info(f"开始验证账号: {username}")
-    room_info = RoomInfo(username, password, verify_code_handler=get_code,
-                         seed=seed)
-    try:
-        final_resp, cookies, history, state = room_info.login()
-        bfp = state.get('bfp') if state else None
-        if bfp:
-            logger.info(f"验证成功! bfp: {bfp}")
-            return bfp
-        else:
-            logger.error("验证完成但未获取到 bfp")
-            return None
-    except Exception as e:
-        logger.error(f"验证失败: {e}")
-        return None
+    processed_emails = set()
+    processed_serverchan = set()
+
+    for query in queries:
+        email_recipients = [
+            r for r in query.get("recipients", []) if r not in processed_emails
+        ]
+        if email_recipients:
+            try:
+                notification.send_email(
+                    recipients=email_recipients,
+                    subject="UESTC-Energyfy Cookie 已过期",
+                    text_content=text,
+                    html_content=html,
+                )
+                processed_emails.update(email_recipients)
+                logger.info(f"已向 {email_recipients} 发送 Cookie 过期邮件通知")
+            except Exception as e:
+                logger.exception("发送 Cookie 过期邮件通知失败")
+
+        sc = query.get("server_chan", {})
+        if sc.get("enabled"):
+            for recipient in sc.get("recipients", []):
+                uid = recipient["uid"]
+                if uid not in processed_serverchan:
+                    try:
+                        notification.send_server_chan(
+                            uid=uid,
+                            sendkey=recipient["sendkey"],
+                            title="UESTC-Energyfy Cookie 已过期",
+                            desp=markdown,
+                            short="Cookie 已过期，请更新后重启服务",
+                        )
+                        processed_serverchan.add(uid)
+                        logger.info(f"已向 Server酱 {uid} 发送 Cookie 过期通知")
+                    except Exception as e:
+                        logger.exception(f"发送 Server酱 Cookie 过期通知失败（{uid}）")
 
 
 def send_notifications(room_name, balance, alert_balance, room_config, notification):
@@ -215,7 +207,6 @@ def main(path=None):
             time.sleep(30)
 
     if args.report_interval > 0:
-        # 简单校验，防止间隔过大导致无法从日志恢复数据
         if args.report_interval > args.backup_count:
             logger.warning(f"统计间隔 ({args.report_interval}天) 大于日志备份数 ({args.backup_count})，图表可能不完整")
 
@@ -226,10 +217,20 @@ def main(path=None):
         )
         reporter.start()
 
+    # 读取不变的配置
+    smtp_config = config_reader.get("smtp")
+    notification = NotificationManager(
+        email_host=smtp_config["server"],
+        email_port=smtp_config["port"],
+        encryption=smtp_config["security"],
+        email_username=smtp_config["username"],
+        email_password=smtp_config["password"],
+        email_sender=smtp_config["username"]
+    )
+
     # 主循环
     while True:
         try:
-
             logger.info("===============开始查询===============")
 
             # 验证配置文件
@@ -241,60 +242,62 @@ def main(path=None):
                 logger.info(line)
 
             # 读取配置
-            if os.getenv("UESTC_USERNAME") and os.getenv("UESTC_PASSWORD"):
-                logger.info("检测到环境变量中的用户名和密码，将优先使用环境变量进行登录")
-                username = os.getenv("UESTC_USERNAME")
-                password = os.getenv("UESTC_PASSWORD")
-            else:
-                username = config_reader.get("username")
-                password = config_reader.get("password")
-
-            # --verify 模式：交互式验证并保存 bfp
-            if args.verify:
-                logger.info("进入验证模式...")
-                if os.getenv("UESTC_USERNAME") and os.getenv("UESTC_PASSWORD"):
-                    logger.error("验证模式不支持环境变量账号，请在配置文件中设置账号密码")
-                    return
-                if args.seed:
-                    logger.info(f"使用自定义 seed: {args.seed}")
-                bfp = verify_account(username, password, seed=args.seed)
-                if bfp:
-                    if save_bfp_to_config(config_reader.config_path, bfp):
-                        logger.info(f"bfp 已保存到配置文件，后续运行时将跳过二次认证")
-                    else:
-                        logger.error("bfp 保存失败")
-                return
+            cookie = config_reader.get("auth.cookie")
+            xgh = config_reader.get("auth.xgh")
             check_interval = config_reader.get("check_interval")
             alert_balance = config_reader.get("alert_balance")
-            smtp_config = config_reader.get("smtp")
             queries = config_reader.get("queries")
-            logger.debug("[main] 已加载配置 -> 用户: %s, 检查间隔: %s, 阈值: %s, 查询数: %s",
-                         username, check_interval, alert_balance, len(queries))
-            # 初始化通知管理器
-            logger.debug("[main] 初始化 NotificationManager")
-            notification = NotificationManager(
-                email_host=smtp_config["server"],
-                email_port=smtp_config["port"],
-                encryption=smtp_config["security"],
-                email_username=smtp_config["username"],
-                email_password=smtp_config["password"],
-                email_sender=smtp_config["username"]
-            )
+            logger.debug("[main] 已加载配置 -> xgh: %s, 检查间隔: %s, 阈值: %s, 查询数: %s",
+                         xgh, check_interval, alert_balance, len(queries))
 
-            # 初始化房间信息查询器
-            logger.debug("[main] 初始化 RoomInfo")
-            bfp = os.getenv("UESTC_BFP") or config_reader.get("bfp")
-            room_info = RoomInfo(username, password, bfp=bfp)
+            # Cookie 更新回调：写回配置文件
+            def update_cookie(new_cookie):
+                try:
+                    import json
+                    with open(config_reader.config_path, 'r', encoding='utf-8') as f:
+                        config = json.load(f)
+                    config['auth']['cookie'] = new_cookie
+                    with open(config_reader.config_path, 'w', encoding='utf-8') as f:
+                        json.dump(config, f, indent=4, ensure_ascii=False)
+                    logger.info("Cookie 已保存到配置文件")
+                except Exception as e:
+                    logger.error(f"保存 Cookie 到配置文件失败: {e}")
 
-            # 获取所有房间名称
+            # 初始化 RoomInfo
+            logger.debug("[main] 初始化 RoomInfo (WeiWeiXiao)")
+            room_info = RoomInfo(cookie=cookie, xgh=xgh,
+                                on_set_cookie=update_cookie)
+
+            # 健康检查
+            if not room_info.check_health():
+                logger.error("Cookie 已过期或无效")
+                _broadcast_cookie_expiry(queries, notification)
+                return
+
+            # 获取期望的房间列表
             room_names = [q["room_name"] for q in queries]
+
+            # 同步绑定状态（strict 模式：精确匹配）
+            logger.info(f"同步绑定状态: 期望 {len(room_names)} 个房间")
+            sync_result = room_info.sync(room_names, mode="strict")
+
+            if room_info.is_cookie_expired():
+                logger.error("同步过程中检测到 Cookie 已过期")
+                _broadcast_cookie_expiry(queries, notification)
+                return
 
             # 查询房间余额
             logger.info(f"开始查询{len(room_names)}个房间的余额信息")
             logger.debug("[main] 查询房间列表: %s", room_names)
 
-            results = room_info.get(room_names)
+            results = room_info.query_balances(room_names)
             logger.debug("[main] 查询结果原始数据: %s", results)
+
+            # 检查 Cookie 过期
+            if room_info.is_cookie_expired():
+                logger.error("查询过程中检测到 Cookie 已过期")
+                _broadcast_cookie_expiry(queries, notification)
+                return
 
             # 处理需要通知的房间
             alert_rooms = []
@@ -306,7 +309,6 @@ def main(path=None):
 
                 balance = float(result.get("syje", '0.0'))
 
-                # 检查余额是否低于阈值
                 if balance < alert_balance:
                     logger.info(f"房间 {room_name} 当前余额: {balance:.2f}元, 低于阈值 ({balance:.2f} < {alert_balance})")
                     alert_rooms.append((room_name, balance))
@@ -318,11 +320,9 @@ def main(path=None):
                 logger.info(f"{len(alert_rooms)}个房间需要通知")
                 logger.debug("[main] 待通知房间详情: %s", alert_rooms)
 
-                # 使用线程池并行发送
                 with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
                     futures = []
                     for room_name, balance in alert_rooms:
-                        # 查找该房间的配置
                         room_config = next((q for q in queries if q["room_name"] == room_name), None)
                         logger.debug("[main] 匹配到房间配置: %s", room_config)
 
@@ -330,14 +330,12 @@ def main(path=None):
                             logger.warning(f"[main] 未找到房间 {room_name} 的配置，跳过通知")
                             continue
 
-                        # 提交发送任务
                         future = executor.submit(
                             send_notifications,
                             room_name, balance, alert_balance, room_config, notification
                         )
                         futures.append(future)
 
-                    # 等待所有任务完成
                     for future in concurrent.futures.as_completed(futures):
                         try:
                             future.result()
@@ -354,10 +352,6 @@ def main(path=None):
             logger.info(f"下次检查将在 {check_interval} 秒后进行")
             time.sleep(check_interval)
 
-        except TwoFactorRequired:
-            logger.error("需要二次认证！请运行 'python Energyfy.py --verify' 完成验证，"
-                         "之后即可正常使用。")
-            return
         except Exception as e:
             logger.exception("主程序发生未处理异常")
             logger.info("30秒后重新启动...")
