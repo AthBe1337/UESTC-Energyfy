@@ -3,17 +3,23 @@
   "title": "Energyfy Config Schema",
   "type": "object",
   "properties": {
-    "username": {
-      "type": "string",
-      "description": "你的学号，会用这个学号的统一认证平台账号发送请求。"
-    },
-    "password": {
-      "type": "string",
-      "description": "统一认证平台密码。"
-    },
-    "bfp": {
-      "type": "string",
-      "description": "浏览器指纹，运行 --verify 后自动生成并持久化，用于跳过二次认证。如未设置则每次登录都需要验证码。"
+    "auth": {
+      "type": "object",
+      "description": "WeiWeiXiao 认证配置。",
+      "properties": {
+        "cookie": {
+          "type": "string",
+          "minLength": 1,
+          "description": "wx.weiweixiao.net 的 Cookie 字符串。格式：key1=val1; key2=val2"
+        },
+        "xgh": {
+          "type": "string",
+          "minLength": 1,
+          "description": "学工号，多个用逗号分隔，绑定房间时随机选择。"
+        }
+      },
+      "required": ["cookie", "xgh"],
+      "additionalProperties": false
     },
     "check_interval": {
       "type": "integer",
@@ -121,6 +127,6 @@
       }
     }
   },
-  "required": ["username", "password", "check_interval", "alert_balance", "smtp", "queries"],
+  "required": ["auth", "check_interval", "alert_balance", "smtp", "queries"],
   "additionalProperties": false
 }

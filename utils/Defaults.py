@@ -7,17 +7,23 @@ _DEFAULT_SCHEMA = {
   "title": "Energyfy Config Schema",
   "type": "object",
   "properties": {
-    "username": {
-      "type": "string",
-      "description": "你的学号，会用这个学号的统一认证平台账号发送请求。"
-    },
-    "password": {
-      "type": "string",
-      "description": "统一认证平台密码。"
-    },
-    "bfp": {
-      "type": "string",
-      "description": "浏览器指纹，运行 --verify 后自动生成并持久化，用于跳过二次认证。"
+    "auth": {
+      "type": "object",
+      "description": "WeiWeiXiao 认证配置。",
+      "properties": {
+        "cookie": {
+          "type": "string",
+          "minLength": 1,
+          "description": "wx.weiweixiao.net 的 Cookie 字符串。格式：key1=val1; key2=val2"
+        },
+        "xgh": {
+          "type": "string",
+          "minLength": 1,
+          "description": "学工号（学号或工号），多个用逗号分隔，绑定房间时随机选择。"
+        }
+      },
+      "required": ["cookie", "xgh"],
+      "additionalProperties": False
     },
     "check_interval": {
       "type": "integer",
@@ -125,7 +131,7 @@ _DEFAULT_SCHEMA = {
       }
     }
   },
-  "required": ["username", "password", "check_interval", "alert_balance", "smtp", "queries"],
+  "required": ["auth", "check_interval", "alert_balance", "smtp", "queries"],
   "additionalProperties": False
 }
 
@@ -266,7 +272,7 @@ def generate_html_email(roomname, balance, min_balance, hostname=True):
 
             <!-- 操作按钮 -->
             <div style="text-align: center; margin: 30px 0 20px;">
-                <a href="https://portal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do"  rel="noreferrer"
+                <a href="http://wx.weiweixiao.net/index.php/Wap/ModZhjf/itemList/token/usgMkdVR6BGAAAAWPwAVGQ/id/skIWNmy96BGAAAAWPwAVGQ.html"  rel="noreferrer"
                    style="background-color: {theme_color}; 
                           color: #fff; 
                           text-decoration: none; 
@@ -311,7 +317,7 @@ UESTC-Energyfy 余额告警通知
 ----------------------------------------
 
 立即充值：
-请访问：https://portal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do
+请访问 http://wx.weiweixiao.net/index.php/Wap/ModZhjf/itemList/token/usgMkdVR6BGAAAAWPwAVGQ/id/skIWNmy96BGAAAAWPwAVGQ.html 进行充值
 
 如有疑问，别有疑问。。
 
@@ -347,7 +353,7 @@ def generate_markdown_notification(roomname, balance, min_balance, hostname=True
 ---
 
 ## 🚀 立即充值
-[点击进入充值页面](https://portal.uestc.edu.cn/qljfwapp/sys/lwUestcDormElecPrepaid/index.do)
+[打开充值页面](http://wx.weiweixiao.net/index.php/Wap/ModZhjf/itemList/token/usgMkdVR6BGAAAAWPwAVGQ/id/skIWNmy96BGAAAAWPwAVGQ.html)
 
 
 ---
@@ -357,3 +363,75 @@ UESTC-Energyfy © {datetime.datetime.now().year}
 {f'Server: {current_host}' if current_host else ""}
 """
     return markdown_content.strip()
+
+
+# ---------------------------------------------------------------------------
+# Cookie 过期通知模板
+# ---------------------------------------------------------------------------
+
+def generate_cookie_expiry_text():
+    """Cookie 过期纯文本通知"""
+    return """UESTC-Energyfy 服务停止通知
+========================================
+
+电费监控服务已停止：Cookie 已过期，无法继续查询电费余额。
+
+请参考仓库文档获取 Cookie 后重新配置并启动服务。
+
+========================================
+本邮件为系统自动发送，请勿直接回复
+UESTC-Energyfy © {year}
+========================================
+""".format(year=datetime.datetime.now().year).strip()
+
+
+def generate_cookie_expiry_html():
+    """Cookie 过期 HTML 邮件通知"""
+    return f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>UESTC-Energyfy 服务停止通知</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #333; background-color: #f5f5f5;">
+    <div style="max-width: 600px; margin: 20px auto; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden;">
+        <div style="background-color: #e74c3c; padding: 25px; text-align: center;">
+            <h1 style="color: #fff; margin: 0; font-size: 24px; font-weight: 500;">UESTC-Energyfy 服务已停止</h1>
+        </div>
+        <div style="padding: 30px;">
+            <p style="font-size: 16px; margin-top: 0; line-height: 1.6;">
+                尊敬的用户：<br>
+                电费监控服务因 <strong style="color: #e74c3c;">Cookie 已过期</strong> 而停止运行。
+            </p>
+            <div style="background-color: #f9f9f9; padding: 20px; border-radius: 6px; margin: 25px 0;">
+                <p style="font-size: 15px; margin: 0; color: #555; line-height: 1.8;">
+                    请参考仓库文档获取新的 Cookie，更新配置文件后重新启动服务。
+                </p>
+            </div>
+        </div>
+        <div style="background-color: #f5f5f5; padding: 20px; text-align: center; font-size: 13px; color: #999; border-top: 1px solid #eee;">
+            <p style="margin: 5px 0;">UESTC-Energyfy &copy; {datetime.datetime.now().year}</p>
+            <p style="margin: 5px 0 0; font-size: 11px; color: #ccc;">本邮件为系统自动发送，请勿直接回复</p>
+        </div>
+    </div>
+</body>
+</html>"""
+
+
+def generate_cookie_expiry_markdown():
+    """Cookie 过期 Markdown 通知（Server酱）"""
+    return """# ⚠️ UESTC-Energyfy 服务已停止
+
+---
+
+## 原因
+Cookie 已过期，系统无法继续查询电费余额。
+
+---
+
+请参考仓库文档获取新的 Cookie，更新配置文件后重新启动服务。
+
+---
+
+UESTC-Energyfy © {year}
+""".format(year=datetime.datetime.now().year).strip()

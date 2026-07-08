@@ -287,7 +287,7 @@ class ConfigReader:
             return "未加载配置"
 
         summary = f"配置文件: {self.config_path}\n"
-        summary += f"用户名: {self.get('username', '未设置')}\n"
+        summary += f"学工号: {self.get('auth.xgh', '未设置')}\n"
         summary += f"检查间隔: {self.get('check_interval', '未设置')}秒\n"
         summary += f"告警阈值: {self.get('alert_balance', '未设置')}元\n"
 
