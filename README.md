@@ -13,6 +13,7 @@
 - [快速开始](#快速开始)
   - [运行配置管理器](#运行配置管理器)
   - [运行脚本](#运行脚本)
+- [新版本注意事项](#新版本注意事项)
 - [常见问题](#常见问题)
 - [可选参数](#可选参数)
 - [统计周报](#统计周报)
@@ -87,99 +88,18 @@ tail -f logs/Energyfy.log
 
 >***你可以保存多份配置文件，并随时切换。脚本默认读取激活配置。***
 
-## 升级注意事项（v1.3.1）
+## 新版本注意事项
 
-v1.3.1 修复了浏览器指纹随机性问题。**所有 v1.3.0 用户建议升级**，旧版本生成的 BFP 为所有用户共享值，存在安全隐患。
+由于旧的 API 已经被学校完全弃用，我们不得不使用新的 API `wx.weiweixiao.net`，也就是你在支付宝或微信中充值使用的网站。
+新 API 的身份认证完全依赖于 支付宝/微信 的登录环境，因此我们无法完全脱离支付宝和微信来运行这个脚本，当然这也是 Energyfy 没有一开始就使用这个明显更容易想到的 API 的原因。
 
-升级后需要**重新执行** `--verify` 以生成唯一的浏览器指纹：
+转换到新版本之后，必须更新 `schema.json`，配置中 `username` `password` `bfp` 等统一认证所需的信息已经被移除，被 `auth` 所取代，其中包含 `cookie` 和 `xgh`。 其中 `cookie` 为抓包得到的接口cookie，为了绑定房间到账号，需要实际创建一个充值订单，订单中有一个必填字段“学工号”，也就是 `xgh`，接口会校验这个学号的真实性以及权限。
 
-```bash
-python Energyfy.py --verify
-```
-
-如需在多台机器间共享同一指纹（如 Docker 部署迁移），可使用 `--seed` 指定种子：
-
-```bash
-python Energyfy.py --verify --seed my-device
-```
-
-## 升级注意事项（v1.3.0）
-
-v1.3.0 适配了统一认证平台新增的**浏览器指纹二次认证**机制。老用户升级后需完成以下步骤：
-
-### 1. 更新 Schema
-
-如果你使用默认配置路径，需要手动更新 `~/.config/Energyfy/schema.json`，在 `"password"` 字段后添加：
-
-```json
-"bfp": {
-  "type": "string",
-  "description": "浏览器指纹，运行 --verify 后自动生成并持久化，用于跳过二次认证。"
-},
-```
-
-### 2. 完成首次验证
-
-```bash
-python Energyfy.py --verify
-# 或使用 Release 版：
-./Energyfy --verify
-```
-
-根据提示输入短信验证码，完成后 bfp 会自动写入配置文件。后续运行时将跳过二次认证。
-
-### 3. 配置模板（手动编辑）
-
-```json
-{
-  "username" : "",
-  "password" : "",
-  "bfp": "",
-  ...
-}
-```
-
-### 4. 环境变量
-
-新增 `UESTC_BFP` 环境变量，可用于传递浏览器指纹：
-
-```bash
-UESTC_BFP="xxx" python Energyfy.py -c config.json
-```
-
-### 5. 第三方库调用
-
-如果其他项目引用了 `RoomInfo`，可通过 `bfp` 参数传入指纹，通过 `verify_code_handler` 回调处理验证码：
-
-```python
-from utils.RoomInfo import RoomInfo, TwoFactorRequired
-
-def get_code(msg):
-    return input(f"{msg}\n请输入验证码: ").strip()
-
-room_info = RoomInfo(username, password, bfp=loaded_bfp, verify_code_handler=get_code)
-try:
-    result = room_info.get(["121604"])
-except TwoFactorRequired:
-    # 没有设置 verify_code_handler 时抛出，提示用户运行 --verify
-    print("需要二次认证")
-```
+- 抓包流程参考[cookie的获取方式](docs/pcap/pcap.md)
+- cookie的有效期未知，但至少大于3天
+- 每个账号可绑定的房间数上限未知，但至少大于100
 
 ## 常见问题
-
-### 登录失败，状态码401
-
-检查你的学号和密码是否正确。如果确认无误仍频繁出现401，可能是因为登录过于频繁导致IP被冻结，需要等待一段时间后重试。
-
-### 需要二次认证
-
-如果运行时报错 `需要二次认证`，说明浏览器指纹未设置或已过期。运行以下命令完成验证：
-
-```bash
-python Energyfy.py --verify
-```
-
-验证成功后 bfp 会自动保存，之后即可正常使用。
 
 ### JS编译错误: Could not find an available JavaScript runtime ...
 
@@ -200,16 +120,8 @@ python Energyfy.py --verify
 - `-f` `--log-file` 指定日志文件路径，默认为`logs/Energyfy.log`
 - `-b` `--backup-count` 指定日志文件备份数量，默认为`7`
 - `--report-interval` 统计电费消耗的周期，单位为天，默认为0，代表不统计。
-- `--verify` 交互式验证模式，完成登录和短信验证码认证后将浏览器指纹持久化到配置文件。首次使用或指纹失效时需要运行。
-- `--seed` 指定 BFP 种子字符串，与 `--verify` 配合使用。同一 seed 可跨机器生成相同的浏览器指纹；不提供则每次随机生成，保证指纹唯一。
 
 ### 环境变量
-
-如果你不想将统一认证用户名与密码持久保存在配置文件中，可以在运行脚本前用以下环境变量指定，配置文件中相应项留空即可。
-
-- `UESTC_USERNAME` 统一认证用户名
-- `UESTC_PASSWORD` 统一认证密码
-- `UESTC_BFP` 浏览器指纹，用于跳过二次认证
 
 **示例用法**
 ```bash
