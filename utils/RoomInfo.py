@@ -69,7 +69,7 @@ class RoomInfo:
     """
 
     def __init__(self, cookie, xgh, host=DEFAULT_HOST, logger=None,
-                 on_set_cookie=None):
+                 on_set_cookie=None, query_timeout=20):
         """
         :param cookie: wx.weiweixiao.net 的 Cookie 字符串
         :param xgh:    学工号（str）、逗号分隔字符串、或列表，绑定房间时随机选择
@@ -77,9 +77,15 @@ class RoomInfo:
         :param logger: 可选的自定义日志器
         :param on_set_cookie: 可选回调，当服务器返回 Set-Cookie 时调用，
                               签名为 on_set_cookie(new_cookie: str) -> None
+        :param query_timeout: queryItem 请求超时时间（秒），必须为正数
         """
         if not cookie or not cookie.strip():
             raise ValueError("cookie 不能为空")
+
+        if (isinstance(query_timeout, bool)
+                or not isinstance(query_timeout, (int, float))
+                or query_timeout <= 0):
+            raise ValueError("query_timeout 必须为正数")
 
         # 规范化 xgh：统一存为列表
         if isinstance(xgh, str):
@@ -94,6 +100,7 @@ class RoomInfo:
         self.origin = f"http://{host}"
         self.logger = logger if logger is not None else get_logger()
         self.on_set_cookie = on_set_cookie
+        self.query_timeout = query_timeout
         self.cookie_expired = False
 
         # 使用 API 固定常量
@@ -109,8 +116,11 @@ class RoomInfo:
         # 创建会话
         self._session = self._create_session()
 
-        self.logger.debug("[RoomInfo] 初始化 -> host: %s, xgh 候选: %s, token: %s, id: %s",
-                         self.host, self.xgh_list, self.token, self.zhjf_id)
+        self.logger.debug(
+            "[RoomInfo] 初始化 -> host: %s, xgh 候选: %s, token: %s, id: %s, "
+            "query_timeout: %s",
+            self.host, self.xgh_list, self.token, self.zhjf_id,
+            self.query_timeout)
 
     # ---- Session ------------------------------------------------------------
 
@@ -189,7 +199,7 @@ class RoomInfo:
 
         try:
             resp = self._session.get(url, params=params, headers=headers,
-                                     timeout=20)
+                                     timeout=self.query_timeout)
         except requests.RequestException as e:
             raise RuntimeError(f"queryItem 请求失败: {e}") from e
 
